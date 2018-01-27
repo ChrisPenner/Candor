@@ -19,10 +19,19 @@ extra-source-files:
 # common to point users to the README.md file.
 description:         Please see the README on Github at <https://github.com/ChrisPenner/candor#readme>
 
+ghc-options: -Wall
+default-extensions:
+  - NoImplicitPrelude
+  - OverloadedStrings
+
 dependencies:
 - base >= 4.7 && < 5
 - megaparsec == 6.4.*
 - text == 1.2.*
+- mtl == 2.2.*
+- lens == 4.15.*
+- containers == 0.5.*
+- rio == 0.0.*
 
 library:
   source-dirs: src

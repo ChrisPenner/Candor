@@ -1,5 +1,6 @@
 module Parse where
 
+import RIO hiding (try, some, first)
 import Text.Megaparsec hiding (parse)
 import qualified Text.Megaparsec as MP
 
@@ -8,12 +9,11 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Data.List.NonEmpty as NE
 
 import Data.Void
-import Data.Bifunctor
 import Data.Maybe
 import AST
 import Control.Monad
 import ParseType
--- import Control.Applicative
+import Data.Bifunctor
 
 type Parser = Parsec Void String
 
@@ -30,7 +30,7 @@ val :: Parser Val
 val = stringLiteral <|> try numberLiteral <|> symbolLiteral
 
 symbolString :: Parser String
-symbolString = L.lexeme space (some (noneOf "\t\n\r ()<>"))
+symbolString = L.lexeme space (some (noneOf ("\t\n\r (){}<>" :: String)))
 
 stringLiteral, numberLiteral, symbolLiteral :: Parser Val
 stringLiteral = Str <$> (char '"' >> manyTill L.charLiteral (char '"'))
@@ -49,11 +49,11 @@ chunk :: Parser AST
 chunk = between (symbol "(") (symbol ")") $ do
   typ <- optional typedef
   case typ of
-    Just t -> Typed t <$> list
-    Nothing -> list
+    Just t -> Typed t <$> (decl <|> list)
+    Nothing -> (decl <|> list)
 
 list :: Parser AST
-list = List . NE.fromList <$> (chunk <|> decl <|> atom) `sepBy1` space 
+list = List . NE.fromList <$> (chunk <|> decl <|> atom) `sepBy1` space
 
 arglist :: Parser [String]
 arglist = between (symbol "{") (symbol "}") (some symbolString)
@@ -63,7 +63,7 @@ decl = do
   _ <- char '!'
   sym <- symbolString
   args <- fromMaybe [] <$> optional arglist
-  exp <- expression
+  exp <- chunk
   return $ Decl sym args exp
 
 

@@ -1,5 +1,6 @@
 module AST where
 
+import RIO
 import qualified Data.List.NonEmpty as NE
 
 data AST =
@@ -13,6 +14,7 @@ data Val =
   Str String
     | Number Int
     | Symbol String
+    | Null
     deriving (Show, Eq)
 
 data Type =

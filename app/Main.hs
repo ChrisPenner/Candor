@@ -1,4 +1,8 @@
+{-# language OverloadedStrings #-}
 module Main where
 
+import RIO
+import Prelude (putStrLn)
+
 main :: IO ()
-main = print "done"
+main = putStrLn "done"
