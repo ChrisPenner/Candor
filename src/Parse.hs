@@ -9,7 +9,6 @@ import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Data.List.NonEmpty as NE
 
 import AST
-import ParseType
 import Data.Bifunctor
 
 type Parser = Parsec Void String
@@ -17,41 +16,36 @@ type Parser = Parsec Void String
 symbol :: String -> Parser String
 symbol = L.symbol space
 
-typedef :: Parser Type
-typedef = between (symbol "<") (symbol ">") typeP
-
 expression :: Parser AST
-expression = chunk <|> stringLiteral <|> try numberLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
+expression = appl <|> stringLiteral <|> try numberLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
 
-symbolString :: Parser String
-symbolString = L.lexeme space (some (noneOf ("\t\n\r ()[]{}<>" :: String)))
+stringLiteral :: Parser AST
+stringLiteral = Str <$> (char '"' *> manyTill L.charLiteral (char '"'))
 
-stringLiteral, numberLiteral, symbolLiteral, funcLiteral, listLiteral :: Parser AST
-stringLiteral = Str <$> (char '"' >> manyTill L.charLiteral (char '"'))
+numberLiteral :: Parser AST
 numberLiteral = Number <$> do
   sign <- optional $ char '-'
   num <- L.lexeme space L.decimal
   return $ case sign of
     Just _ -> negate num
     Nothing -> num
-symbolLiteral = Symbol <$> symbolString
+
+symbolLiteral :: Parser AST
+symbolLiteral =
+  Symbol <$> L.lexeme space (some (noneOf ("\t\n\r ()[]{}<>" :: String)))
+
+funcLiteral :: Parser AST
 funcLiteral =
   between (symbol "{") (symbol "}") $ do
     args <- list
     expr <- expression
     return $ Func args expr
+
+listLiteral :: Parser AST
 listLiteral = List <$> list
 
-
-chunk :: Parser AST
-chunk = between (symbol "(") (symbol ")") $ do
-  typ <- optional typedef
-  case typ of
-    Just t -> Typed t <$> appl
-    Nothing -> appl
-
 appl :: Parser AST
-appl = Appl . NE.fromList <$> expression `sepBy1` space
+appl = Appl . NE.fromList <$> between (symbol "(") (symbol ")") (expression `sepBy1` space)
 
 list :: Parser [AST]
 list = between (symbol "[") (symbol "]") (many expression)

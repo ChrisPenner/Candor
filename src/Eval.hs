@@ -25,7 +25,6 @@ eval :: AST -> AST
 eval ast = substitute globals ast
 
 substitute :: Bindings -> AST -> AST
-substitute bindings (Typed _ _) = Null
 substitute bindings (Symbol name) =
   case M.lookup name bindings of
     Just expr -> substitute bindings expr

@@ -1,4 +1,4 @@
-module ParseType (typeP) where
+module ParseType () where
 
 import RIO hiding (some)
 import Text.Megaparsec
@@ -9,15 +9,19 @@ import AST
 
 type Parser = Parsec Void String
 
-symbol :: String -> Parser String
-symbol = L.symbol space
+-- symbol :: String -> Parser String
+-- symbol = L.symbol space
 
-typeP :: Parser Type
-typeP = do
-  start <- NE.fromList . map SingletonT <$> L.lexeme space (some alphaNumChar) `manyTill` (eof <|> void (symbol ":"))
-  endoffile <- optional eof
-  case endoffile of
-    Nothing -> do
-      end <- optional typeP
-      return $ Type start end
-    Just _ -> return $ Type start Nothing
+-- typeP :: Parser Type
+-- typeP = do
+--   start <- NE.fromList . map SingletonT <$> L.lexeme space (some alphaNumChar) `manyTill` (eof <|> void (symbol ":"))
+--   endoffile <- optional eof
+--   case endoffile of
+--     Nothing -> do
+--       end <- optional typeP
+--       return $ Type start end
+--     Just _ -> return $ Type start Nothing
+--
+-- typedef :: Parser Type
+-- typedef = between (symbol "<") (symbol ">") typeP
+

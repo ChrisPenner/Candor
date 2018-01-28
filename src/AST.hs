@@ -4,8 +4,7 @@ import RIO
 import qualified Data.List.NonEmpty as NE
 
 data AST =
-  Typed Type AST
-  | Appl (NE.NonEmpty AST)
+  Appl (NE.NonEmpty AST)
   | Str String
   | Number Int
   | Symbol String
@@ -15,7 +14,6 @@ data AST =
   | Null
 
 instance Show AST where
-  show (Typed t ast) = "(Typed " ++ show t ++ " " ++ show ast ++ ")"
   show (Appl l) = "(Appl " ++ show l ++ ")"
   show (Str s) = "(Str " ++ s ++ ")"
   show (Number n) = "(Number " ++ show n ++ ")"
@@ -26,7 +24,6 @@ instance Show AST where
   show Null = "(Null)"
 
 instance Eq AST where
-  (Typed t ast) == (Typed t' ast') = (t, ast) == (t', ast')
   (Appl l) == (Appl l') = l == l'
   (Str s) == (Str s') = s == s'
   (Number n) == (Number n') = n == n'
@@ -36,8 +33,3 @@ instance Eq AST where
   (Builtin  _) == (Builtin _) = True
   Null == Null = True
   _ == _ = False
-
-data Type =
-  Type (NE.NonEmpty Type) (Maybe Type)
-    | SingletonT String
-    deriving (Show, Eq)
