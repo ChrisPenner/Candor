@@ -5,50 +5,43 @@ import AST
 import Env
 import Control.Monad.State
 import Control.Lens
-import Data.List.NonEmpty
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.Map as M
 
 type EvalM a = State Env a
 
-setGlobals :: EvalM ()
-setGlobals = do
-  add "+" (Atom (Builtin add'))
-  add "-" (Atom (Builtin sub'))
+type Bindings = M.Map String AST
+
+globals :: Bindings
+globals =
+  M.fromList [("+", Builtin add), ("-", Builtin sub)]
     where
-      add' ([Number m, (Number n)]) = Number (m + n)
-      add' _ = error "expected numbers in (+)"
-      sub' ([Number m, Number n]) = Number (m - n)
-      sub' _ = error "expected numbers in (-)"
+      add ([Number m, (Number n)]) = Number (m + n)
+      add _ = error "expected numbers in (+)"
+      sub ([Number m, Number n]) = Number (m - n)
+      sub _ = error "expected numbers in (-)"
 
-eval :: AST -> Val
-eval ast = evalState (setGlobals >> eval' ast) (Env mempty)
+eval :: AST -> AST
+eval ast = substitute globals ast
 
-eval' :: AST -> EvalM Val
-eval' (Typed _ _) = return Null
-eval' (Atom (Symbol name)) = do
-  val <- lookup' name
-  case val of
-    Just expr -> eval' expr
+substitute :: Bindings -> AST -> AST
+substitute bindings (Typed _ _) = Null
+substitute bindings (Symbol name) =
+  case M.lookup name bindings of
+    Just expr -> substitute bindings expr
     Nothing -> error $ name ++ " is not defined"
-eval' (Atom v) = return v
-eval' (Appl (h :| [])) = eval' h
-eval' (Appl (f :| args)) = do
-  res <- eval' f
-  case res of
-    Builtin f' -> do
-      args' <- traverse eval' args
-      return $ f' args'
-    Func bindings expr -> do
-      let bindings' = unpackBinding <$> bindings
-      _ <- zipWithM add bindings' args
-      eval' expr
-    _ -> error $ "expected function not expression: " ++ show res
 
-unpackBinding :: AST -> String
-unpackBinding (Atom (Symbol name)) = name
-unpackBinding b = error $ "expected string in binding position, found: " ++ show b
+substitute bindings (Appl (h :| [])) = substitute bindings h
+substitute bindings (Appl (f :| args)) =
+  case substitute bindings f of
+    Builtin f' -> f' $ substitute bindings <$> args
+    Func funcArgs expr -> do
+      let argSymbols = assertString <$> funcArgs
+          newBindings = bindings <> M.fromList (zip argSymbols args)
+       in substitute newBindings expr
+    _ -> error $ "expected function not expression: " ++ show (substitute bindings f)
+substitute bindings a = a
 
-lookup' :: String -> EvalM (Maybe AST)
-lookup' key = use (env . at key)
-
-add :: String -> AST -> EvalM ()
-add key val = (env . at key) ?= val
+assertString :: AST -> String
+assertString (Symbol name) = name
+assertString b = error $ "expected string in binding position, found: " ++ show b

@@ -21,15 +21,12 @@ typedef :: Parser Type
 typedef = between (symbol "<") (symbol ">") typeP
 
 expression :: Parser AST
-expression = chunk <|> atom
-
-val :: Parser Val
-val = stringLiteral <|> try numberLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
+expression = chunk <|> stringLiteral <|> try numberLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
 
 symbolString :: Parser String
 symbolString = L.lexeme space (some (noneOf ("\t\n\r ()[]{}<>" :: String)))
 
-stringLiteral, numberLiteral, symbolLiteral, funcLiteral, listLiteral :: Parser Val
+stringLiteral, numberLiteral, symbolLiteral, funcLiteral, listLiteral :: Parser AST
 stringLiteral = Str <$> (char '"' >> manyTill L.charLiteral (char '"'))
 numberLiteral = Number <$> do
   sign <- optional $ char '-'
@@ -46,9 +43,6 @@ funcLiteral =
 listLiteral = List <$> list
 
 
-atom :: Parser AST
-atom = Atom <$> val
-
 chunk :: Parser AST
 chunk = between (symbol "(") (symbol ")") $ do
   typ <- optional typedef
@@ -57,7 +51,7 @@ chunk = between (symbol "(") (symbol ")") $ do
     Nothing -> appl
 
 appl :: Parser AST
-appl = Appl . NE.fromList <$> (chunk <|> atom) `sepBy1` space
+appl = Appl . NE.fromList <$> expression `sepBy1` space
 
 list :: Parser [AST]
 list = between (symbol "[") (symbol "]") (many expression)
