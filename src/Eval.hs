@@ -2,45 +2,37 @@ module Eval where
 
 import RIO
 import AST
-import Env
-import Control.Monad.State
-import Control.Lens
-import Data.List.NonEmpty (NonEmpty(..))
 import qualified Data.Map as M
 
-type EvalM a = State Env a
-
-type Bindings = M.Map String AST
-
-globals :: Bindings
-globals =
-  M.fromList [("+", Builtin add), ("-", Builtin sub)]
-    where
-      add ([Number m, (Number n)]) = Number (m + n)
-      add _ = error "expected numbers in (+)"
-      sub ([Number m, Number n]) = Number (m - n)
-      sub _ = error "expected numbers in (-)"
+type Bindings = Map String AST
 
 eval :: AST -> AST
-eval ast = substitute globals ast
+eval ast = substitute mempty ast
 
 substitute :: Bindings -> AST -> AST
 substitute bindings (Symbol name) =
   case M.lookup name bindings of
     Just expr -> substitute bindings expr
-    Nothing -> error $ name ++ " is not defined"
+    Nothing -> Builtin name
 
-substitute bindings (Appl (h :| [])) = substitute bindings h
-substitute bindings (Appl (f :| args)) =
+substitute bindings (Appl h []) = substitute bindings h
+substitute bindings (Appl f args) =
   case substitute bindings f of
-    Builtin f' -> f' $ substitute bindings <$> args
+    Builtin name -> builtin name (substitute bindings <$> args)
     Func funcArgs expr -> do
-      let argSymbols = assertString <$> funcArgs
+      let argSymbols = assertBinders <$> funcArgs
           newBindings = bindings <> M.fromList (zip argSymbols args)
        in substitute newBindings expr
     _ -> error $ "expected function not expression: " ++ show (substitute bindings f)
-substitute bindings a = a
+substitute _ a = a
 
-assertString :: AST -> String
-assertString (Symbol name) = name
-assertString b = error $ "expected string in binding position, found: " ++ show b
+builtin :: String -> [AST] -> AST
+builtin "+" [Number a, Number b] = Number (a + b)
+builtin "-" [Number a, Number b] = Number (a - b)
+builtin "*" [Number a, Number b] = Number (a * b)
+builtin "=" [Binder name, expr] = Bindings (M.singleton name expr)
+builtin name args = error $ "no symbol in scope for " ++ name ++ ": " ++ show args
+
+assertBinders :: AST -> String
+assertBinders (Binder name) = name
+assertBinders b = error $ "expected binding symbol; found: " ++ show b
