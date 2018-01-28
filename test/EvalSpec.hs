@@ -1,11 +1,11 @@
 module EvalSpec where
 
-import qualified Data.Text.IO as TIO
+import RIO
+
 import Test.Hspec
 import Parse
 import Eval
 import AST
-import Data.List.NonEmpty
 
 
 spec :: Spec

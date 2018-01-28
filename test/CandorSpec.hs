@@ -1,5 +1,7 @@
 module CandorSpec where
 
+import RIO
+
 import Test.Hspec
 
 spec :: Spec

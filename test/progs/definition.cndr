@@ -1,2 +1,4 @@
-(!times_two (num) (* num 2))
-(times_two 5)
+(with
+    (merge [(= :times_two (collect [:num] (* num 2)))]
+    (times_two 5)
+)

@@ -6,8 +6,6 @@ import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 import qualified Data.List.NonEmpty as NE
 import AST
-import Data.Void
-import Control.Monad
 
 type Parser = Parsec Void String
 
