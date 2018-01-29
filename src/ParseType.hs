@@ -1,13 +1,13 @@
 module ParseType () where
 
-import RIO hiding (some)
-import Text.Megaparsec
-import Text.Megaparsec.Char
-import qualified Text.Megaparsec.Char.Lexer as L
-import qualified Data.List.NonEmpty as NE
-import AST
+-- import RIO hiding (some)
+-- import Text.Megaparsec
+-- import Text.Megaparsec.Char
+-- import qualified Text.Megaparsec.Char.Lexer as L
+-- import qualified Data.List.NonEmpty as NE
+-- import AST
 
-type Parser = Parsec Void String
+-- type Parser = Parsec Void String
 
 -- symbol :: String -> Parser String
 -- symbol = L.symbol space

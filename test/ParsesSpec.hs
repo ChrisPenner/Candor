@@ -15,5 +15,5 @@ spec = do
     it "parses funcs" $ do
       parse "{ [num] (* num 2) }" `shouldBe` Right (Func [Symbol "num"] (Appl (Symbol "*") [Symbol "num", Number 2]))
     it "parses definitions alongside expressions"
-      (parse "(with (= :times_two {[:num] (* num 2)}) (times_two 5))" `shouldBe`
-          Right (Appl (Symbol "with") [Appl (Symbol "=") [Binder "times_two", Func [Binder "num"] (Appl (Symbol "*") [Symbol "num", Number 2])], Appl (Symbol "times_two") [Number 5]]))
+      (parse "((= :times_two {[:num] (* num 2)}) (times_two 5))" `shouldBe`
+          Right (Appl  (Appl (Symbol "=") [Binder "times_two", Func [Binder "num"] (Appl (Symbol "*") [Symbol "num", Number 2])]) [Appl (Symbol "times_two") [Number 5]]))

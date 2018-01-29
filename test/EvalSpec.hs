@@ -17,5 +17,9 @@ spec = do
     it "evals functions" $ do
       eval <$> parse "({[:num] (* num 2)} 5)" `shouldBe` Right (Number 10)
     it "evals bindings" $ do
-      ((eval <$> parse "(with (= :times_two {[:num] (* num 2)}) (times_two 5))") `shouldBe`
-        Right (Number 10))
+      ((eval <$> parse "((= :times_two {[:num] (* num 2)}) (times_two 10))") `shouldBe`
+        Right (Number 20))
+    it "evals recursive functions" $ do
+      eval <$> parse "((= :times_two {[:num] (* num 2)}) (times_two (times_two 10)))" `shouldBe` Right (Number 40)
+    it "merges bindings" $ do
+      eval <$> parse "((merge [(= :times_two {[:num] (* num 2)}) (= :inc {[:num] (+ 1 num)})]) (times_two (inc 1)))" `shouldBe` Right (Number 4)
