@@ -1,4 +1,6 @@
-(with
-    (merge [(= :times_two (collect [:num] (* num 2)))]
-    (times_two 5)
+((merge 
+  [(= :times_two {[:num] (* num 2)})
+   (= :inc {[:num] (+ 1 num)})
+  ]) 
+ (times_two (inc 1))
 )
