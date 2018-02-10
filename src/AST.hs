@@ -6,9 +6,10 @@ data AST =
   Appl AST [AST]
   | Str String
   | Number Int
+  | Boolean Bool
   | Symbol String
   | Binder String
-  | Func [AST] AST
+  | FuncDef [AST] AST
   | List [AST]
   | Builtin String
   | Bindings (Map String AST)

@@ -9,7 +9,7 @@ type Bindings = Map String AST
 
 primitives :: Bindings
 primitives = M.fromList . fmap embed $ 
-  [ "+" , "-" , "*" , "=" , "merge" ]
+  [ "+" , "-" , "*" , "=" , "merge", "++", "if", "==" ]
     where embed x = (x, Builtin x)
 
 eval :: AST -> Either String AST
@@ -19,13 +19,13 @@ eval' :: Bindings -> AST -> Either String AST
 eval' bindings (Symbol name) =
   case M.lookup name bindings of
     Just expr -> eval' bindings expr
-    Nothing -> error $ "no symbol in scope for: " ++ name
+    Nothing -> Left $ "no symbol in scope for: " ++ name
 
 eval' bindings (Appl h []) = eval' bindings h
 eval' bindings (Appl ((eval' bindings) -> Right (Bindings binds)) [expr]) = eval' (bindings <> binds) expr
 eval' bindings (Appl ((eval' bindings) -> Right (Builtin name)) args) =
   (traverse (eval' bindings) args) >>= builtin name 
-eval' bindings (Appl ((eval' bindings) -> Right (Func binders expr)) args) = do
+eval' bindings (Appl ((eval' bindings) -> Right (FuncDef binders expr)) args) = do
   newArgs <- traverse (eval' bindings) args
   argSymbols <- traverse assertBinders binders
   let newBindings =  bindings <> M.fromList (zip argSymbols newArgs)
@@ -33,14 +33,17 @@ eval' bindings (Appl ((eval' bindings) -> Right (Func binders expr)) args) = do
 eval' _ (Appl expr _) =
   Left $ "expected function not expression: " ++ show expr
 eval' bindings (List elems) = List <$> (traverse (eval' bindings) elems)
-eval' _ f@(Func _ _) = Right $ f
+eval' _ f@(FuncDef _ _) = Right $ f
 eval' _ s@(Str _) = Right $ s
 eval' _ n@(Number _) = Right $ n
 eval' _ b@(Binder _) = Right $ b
 eval' _ b@(Builtin _) = Right $ b
 eval' _ b@(Bindings _) = Right $ b
+eval' _ b@(Boolean _) = Right $ b
 
 builtin :: String -> [AST] -> Either String AST
+builtin "if" [Boolean b, x, y] = Right $ if b then x else y
+builtin "if" args = Left $ "Expected a condition then two expressions; got:" ++ show args
 builtin "+" [Number a, Number b] = Right $ Number (a + b)
 builtin "+" args = Left $ "Expected two Number arguments to + but got:" ++ show args
 builtin "-" [Number a, Number b] = Right $ Number (a - b)
@@ -49,6 +52,11 @@ builtin "*" [Number a, Number b] = Right $ Number (a * b)
 builtin "*" args = Left $ "Expected two Number arguments to * but got:" ++ show args
 builtin "=" [Binder name, expr] = Right $ Bindings (M.singleton name expr)
 builtin "=" args = Left $ "Expected single expression argument to = but got:" ++ show args
+builtin "==" [Number n, Number m] = Right $ Boolean (n == m)
+builtin "==" [Str s, Str t] = Right $ Boolean (s == t)
+builtin "==" _ = Right $ Boolean False
+builtin "++" [Str a, Str b] = Right $ Str (a ++ b)
+builtin "++" args = Left $ "Expected two String arguments to ++ but got:" ++ show args
 builtin "merge" [List binds] = do
   allBindings <- traverse assertBindings binds
   return . Bindings $ M.unions allBindings

@@ -16,12 +16,20 @@ symbol :: String -> Parser String
 symbol = L.symbol space
 
 expression :: Parser AST
-expression = appl <|> stringLiteral <|> try numberLiteral <|> binderLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
+expression = appl <|> stringLiteral <|> try numberLiteral <|> binderLiteral <|> try boolLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
 
 binderLiteral :: Parser AST
 binderLiteral = do
   _ <- char ':'
   Binder <$> symbolLexeme
+
+boolLiteral :: Parser AST
+boolLiteral = do
+  s <- symbolLexeme
+  case s of
+    "T" -> return $ Boolean True
+    "F" -> return $ Boolean False
+    _ -> empty
 
 stringLiteral :: Parser AST
 stringLiteral = Str <$> (char '"' *> manyTill L.charLiteral (char '"'))
@@ -45,7 +53,7 @@ funcLiteral =
   between (symbol "{") (symbol "}") $ do
     args <- list
     expr <- expression
-    return $ Func args expr
+    return $ FuncDef args expr
 
 listLiteral :: Parser AST
 listLiteral = List <$> list
