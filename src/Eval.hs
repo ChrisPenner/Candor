@@ -3,14 +3,23 @@ module Eval where
 
 import RIO
 import AST
+import Types
 import qualified Data.Map as M
 
 type Bindings = Map String AST
 
 primitives :: Bindings
-primitives = M.fromList . fmap embed $ 
-  [ "+" , "-" , "*" , "=" , "merge", "++", "if", "==" ]
-    where embed x = (x, Builtin x)
+primitives = M.fromList . fmap embed $
+  [ ("+", TFunc [TNumber, TNumber, TNumber])
+  , ("-", TFunc [TNumber, TNumber, TNumber])
+  , ("*", TFunc [TNumber, TNumber, TNumber])
+  , ("=", TFunc [TBinder, TAny, TBindings])
+  , ("merge", TFunc [TList [TBindings], TBindings])
+  , ("++", TFunc [TString, TString, TString])
+  , ("if", TFunc [TBool, TAny, TAny])
+  , ("==", TFunc [TAny, TAny, TBool])
+  ]
+    where embed (x, t) = (x, Builtin t x)
 
 eval :: AST -> Either String AST
 eval ast = eval' primitives ast
@@ -23,8 +32,8 @@ eval' bindings (Symbol name) =
 
 eval' bindings (Appl h []) = eval' bindings h
 eval' bindings (Appl ((eval' bindings) -> Right (Bindings binds)) [expr]) = eval' (bindings <> binds) expr
-eval' bindings (Appl ((eval' bindings) -> Right (Builtin name)) args) =
-  (traverse (eval' bindings) args) >>= builtin name 
+eval' bindings (Appl ((eval' bindings) -> Right (Builtin _ name)) args) =
+  (traverse (eval' bindings) args) >>= builtin name
 eval' bindings (Appl ((eval' bindings) -> Right (FuncDef binders expr)) args) = do
   newArgs <- traverse (eval' bindings) args
   argSymbols <- traverse assertBinders binders
@@ -37,7 +46,7 @@ eval' _ f@(FuncDef _ _) = Right $ f
 eval' _ s@(Str _) = Right $ s
 eval' _ n@(Number _) = Right $ n
 eval' _ b@(Binder _) = Right $ b
-eval' _ b@(Builtin _) = Right $ b
+eval' _ b@(Builtin _ _) = Right $ b
 eval' _ b@(Bindings _) = Right $ b
 eval' _ b@(Boolean _) = Right $ b
 

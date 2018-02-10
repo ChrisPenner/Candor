@@ -2,6 +2,8 @@ module AST where
 
 import RIO
 
+import Types
+
 data AST =
   Appl AST [AST]
   | Str String
@@ -11,6 +13,6 @@ data AST =
   | Binder String
   | FuncDef [AST] AST
   | List [AST]
-  | Builtin String
+  | Builtin Type String
   | Bindings (Map String AST)
   deriving (Show, Eq)
