@@ -4,6 +4,8 @@ import RIO
 
 import Types
 
+type Bindings = Map String AST
+
 data AST =
   Appl AST [AST]
   | Str String

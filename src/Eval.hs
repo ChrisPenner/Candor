@@ -3,23 +3,8 @@ module Eval where
 
 import RIO
 import AST
-import Types
 import qualified Data.Map as M
-
-type Bindings = Map String AST
-
-primitives :: Bindings
-primitives = M.fromList . fmap embed $
-  [ ("+", TFunc [TNumber, TNumber, TNumber])
-  , ("-", TFunc [TNumber, TNumber, TNumber])
-  , ("*", TFunc [TNumber, TNumber, TNumber])
-  , ("=", TFunc [TBinder, TAny, TBindings])
-  , ("merge", TFunc [TList [TBindings], TBindings])
-  , ("++", TFunc [TString, TString, TString])
-  , ("if", TFunc [TBool, TAny, TAny])
-  , ("==", TFunc [TAny, TAny, TBool])
-  ]
-    where embed (x, t) = (x, Builtin t x)
+import Primitives
 
 eval :: AST -> Either String AST
 eval ast = eval' primitives ast

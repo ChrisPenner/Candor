@@ -2,6 +2,8 @@ module Types where
 
 import RIO
 
+type TypeBindings = Map String Type
+
 data Type =
   TNumber
     | TString
@@ -9,6 +11,6 @@ data Type =
     | TBinder
     | TList [Type]
     | TAny
-    | TBindings
+    | TBindings TypeBindings
     | TFunc [Type]
   deriving (Show, Eq)

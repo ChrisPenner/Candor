@@ -2,31 +2,38 @@ module TypeCheck where
 
 import Types
 import AST
+import Primitives
 
 import RIO
+import qualified Data.Map as M
 
--- typecheck :: AST -> Maybe String
--- typecheck ast = case typecheck' ast of
-                  -- Right _ -> Nothing
-                  -- Left err -> Just err
+runTypecheck :: AST -> Type
+runTypecheck = typecheck primitiveTypes
 
-typecheck' :: AST -> Type
-typecheck' (Str _) = TString
-typecheck' (Number _) = TNumber
-typecheck' (Boolean _) = TBool
-typecheck' (Symbol _) = TAny --error "symbol type not defined"
-typecheck' (Binder _) = TBinder
-typecheck' (FuncDef _ _) = undefined -- infer ast
-typecheck' (List xs) = TList (typecheck' <$> xs)
-typecheck' (Builtin t _) = t
-typecheck' (Bindings _) = TBindings
-typecheck' (Appl f l) = applyType (typecheck' f) (typecheck' <$> l)
+primitiveTypes :: TypeBindings
+primitiveTypes = typecheck mempty <$> primitives
+
+typecheck :: TypeBindings -> AST -> Type
+typecheck _ (Str _) = TString
+typecheck _ (Number _) = TNumber
+typecheck _ (Boolean _) = TBool
+typecheck bindings (Symbol name) = fromMaybe (error $ "no binding found for " ++ name) (M.lookup name bindings)
+typecheck _ (Binder _) = TBinder
+typecheck _ (FuncDef args expr) = undefined -- infer ast
+typecheck bindings (List xs) = TList (typecheck bindings <$> xs)
+typecheck _ (Builtin t _) = t
+typecheck bindings (Bindings m) = TBindings (typecheck bindings <$> m)
+typecheck bindings (Appl f args) = 
+  case typecheck bindings f of
+    TBindings typeBindings -> 
+      case args of
+        [expr] -> typecheck (bindings <> typeBindings) expr
+        _ -> error "Expected single expression in binding pattern"
+    func -> applyType func (typecheck bindings <$> args)
 
 applyType :: Type -> [Type] -> Type
-applyType (TFunc (x:[])) (y:[])
-  | x == y = x
-
+applyType (TFunc (x:[])) [] = x
 applyType (TFunc (x:xs)) (y:ys)
   | x == y = applyType (TFunc xs) ys
   | otherwise = error $ "typecheck failure, expected (" ++ show x ++ ") but got: (" ++ show y ++ ")"
-applyType _ _ = error "can't apply non function type"
+applyType x y = error $ "can't apply non function type: " ++ show x ++ "; " ++ show y
