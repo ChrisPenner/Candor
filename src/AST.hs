@@ -17,4 +17,5 @@ data AST =
   | List [AST]
   | Builtin Type String
   | Bindings (Map String AST)
+  | BindingExp String AST
   deriving (Show, Eq)
