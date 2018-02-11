@@ -39,3 +39,5 @@ Currently unsupported:
 - Type inference
 - IO
 - Datatypes
+
+Like seriously, don't even try and use this thing.
