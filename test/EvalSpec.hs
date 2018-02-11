@@ -31,7 +31,7 @@ spec = do
     it "can test equality" $ do
       (parse "(== 1 2)" >>= eval) `shouldBe` Right (Boolean False)
       (parse "(== 1 1)" >>= eval) `shouldBe` Right (Boolean True)
-    -- it "can run simple recursive functions" $ do
-      -- (parse "((= :fact {[:num] (if (== num 0) 1 (* num (fact (- num 1))))}) (fact 5))" >>= eval) `shouldBe` Right (Number 1)
+    it "can run simple recursive functions" $ do
+      (parse "((= :fact {[:num] (if (== num 0) 1 (* num (fact (- num 1))))}) (fact 5))" >>= eval) `shouldBe` Right (Number 1)
 
 
