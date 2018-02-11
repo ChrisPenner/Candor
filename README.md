@@ -22,6 +22,16 @@ and type inference. It's a simple lisp-like expression-based language.
     (square 5)
 )
 ;; 25
+
+;; `merge` a list of bindings into a set of bindings
+(
+    (merge [ (= :x 10)
+             (= :y 42)
+             (= :square {[:num] (* num num)})])
+    (+ (square x) y)
+    )
+)
+;; 142
 ```
 
 Currently unsupported:
