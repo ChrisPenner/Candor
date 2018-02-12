@@ -17,8 +17,11 @@ sub _ _ x = x
 subBindings :: Bindings -> AST -> AST
 subBindings bindings = appEndo . foldMap Endo $ uncurry sub <$> M.toList bindings
 
+handleBuiltins :: AST -> AST
+handleBuiltins = subBindings primitives
+
 eval :: AST -> Either String AST
-eval = eval' . subBindings primitives
+eval = eval' . handleBuiltins
 
 eval' :: AST -> Either String AST
 eval' (Symbol name) = Left $ "no symbol in scope for: " ++ name
