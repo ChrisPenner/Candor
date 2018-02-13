@@ -13,9 +13,8 @@ data AST =
   | Boolean Bool
   | Symbol String
   | Binder String
-  | FuncDef [AST] AST
+  | FuncDef [String] AST
   | List [AST]
   | Builtin Type String
   | Bindings (Map String AST)
-  | BindingExp String AST
   deriving (Show, Eq)

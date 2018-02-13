@@ -16,7 +16,7 @@ symbol :: String -> Parser String
 symbol = L.symbol space
 
 expression :: Parser AST
-expression = appl <|> stringLiteral <|> try numberLiteral <|> binderLiteral <|> try boolLiteral <|> symbolLiteral <|> funcLiteral <|> listLiteral
+expression = appl <|> stringLiteral <|> try numberLiteral <|> binderLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral
 
 binderLiteral :: Parser AST
 binderLiteral = do
@@ -47,13 +47,6 @@ symbolLexeme = L.lexeme space (some (noneOf ("\t\n\r ()[]{}<>" :: String)))
 
 symbolLiteral :: Parser AST
 symbolLiteral = Symbol <$> symbolLexeme
-
-funcLiteral :: Parser AST
-funcLiteral =
-  between (symbol "{") (symbol "}") $ do
-    args <- list
-    expr <- expression
-    return $ FuncDef args expr
 
 listLiteral :: Parser AST
 listLiteral = List <$> list

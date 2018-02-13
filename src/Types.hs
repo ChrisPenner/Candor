@@ -9,7 +9,7 @@ data Type =
     | TString
     | TBool
     | TBinder
-    | TList [Type]
+    | TList Type
     | TAny
     | TBindings TypeBindings
     | TFunc [Type]

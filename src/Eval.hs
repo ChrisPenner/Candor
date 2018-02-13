@@ -33,12 +33,40 @@ eval' (Appl f args) = do
       case args of
         [expr] -> eval' (subBindings newBinds expr)
         _ -> Left "expected single arg to Binding expression"
-    Builtin _ name -> traverse eval' args >>= builtin name
+    Builtin _ name -> builtin name args
     FuncDef binders expr -> do
-      argSymbols <- traverse assertBinders binders
       evalArgs <- traverse eval' args
-      let newBindings = M.fromList $ zip argSymbols evalArgs
+      let newBindings = M.fromList $ zip binders evalArgs
       eval' (subBindings newBindings expr)
     _ ->  Left $ "expected function not expression: " ++ show f
 eval' (List elems) = List <$> (traverse eval' elems)
 eval' v = Right v
+
+builtin :: String -> [AST] -> Either String AST
+builtin "def" args = def args
+builtin name args = do
+  evalArgs <- traverse eval' args
+  builtin' name evalArgs
+
+builtin' :: String -> [AST] -> Either String AST
+builtin' "if" = if'
+builtin' "+" = numBinOp (+)
+builtin' "-" = numBinOp (-)
+builtin' "*" = numBinOp (*)
+builtin' "++" = stringBinOp (++)
+builtin' "=" = eq'
+builtin' "=="  = eqBool
+builtin' "merge" = merge
+builtin' "def" = def
+builtin' name = notFound name
+
+def :: [AST] -> Either String AST
+def [List binders, expr] = do
+  binds <- traverse assertBinders binders
+  return $ FuncDef binds expr
+def args = Left $ "expected list of binders, then an expression; got: " ++ show args
+
+eq' :: [AST] -> Either String AST
+eq' [Binder name, expr] = Right $ Bindings (M.singleton name (sub name expr expr))
+eq' args = Left $ "Expected binder and expression argument to = but got:" ++ show args
+
