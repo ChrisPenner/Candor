@@ -28,11 +28,6 @@ stringBinOp :: (String -> String -> String) -> [AST] -> Either String AST
 stringBinOp f [Str x, Str y] = Right (Str $ f x y)
 stringBinOp _ args = Left $ "expected 2 strings, got: " ++ show (length args)
 
-if' :: [AST] -> Either String AST
-if' [Boolean True, x, _] = Right x
-if' [Boolean False, _, y] = Right y
-if' args = Left $ "Expected a Boolean, then two expressions; got:" ++ show args
-
 eqBool :: [AST] -> Either String AST
 eqBool  [a, b] = Right $ Boolean (a == b)
 eqBool _ = Right $ Boolean False

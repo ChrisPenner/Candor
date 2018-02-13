@@ -6,50 +6,39 @@ import AST
 import qualified Data.Map as M
 import Primitives
 
-sub :: String -> AST -> AST -> AST
-sub name v (Symbol n) | name == n = v
-sub name v (Bindings bindings) = Bindings (sub name v <$> bindings)
-sub name v (FuncDef names expr) = FuncDef names (sub name v expr)
-sub name v (Appl f args) = Appl (sub name v f) (sub name v <$> args)
-sub name v (List elems) = List (sub name v <$> elems)
-sub _ _ x = x
-
-subBindings :: Bindings -> AST -> AST
-subBindings bindings = appEndo . foldMap Endo $ uncurry sub <$> M.toList bindings
-
-handleBuiltins :: AST -> AST
-handleBuiltins = subBindings primitives
-
 eval :: AST -> Either String AST
-eval = eval' . handleBuiltins
+eval = eval' primitives
 
-eval' :: AST -> Either String AST
-eval' (Symbol name) = Left $ "no symbol in scope for: " ++ name
-eval' (Appl h []) = eval' h
-eval' (Appl f args) = do
-  appl <- eval' f
+eval' :: Bindings -> AST -> Either String AST
+eval' bindings (Symbol name) =
+  case M.lookup name bindings of
+    Just expr -> eval' bindings expr
+    Nothing -> Left $ "no symbol in scope for: " ++ name
+eval' bindings (Appl h []) = eval' bindings h
+eval' bindings (Appl f args) = do
+  appl <- eval' bindings f
   case appl of
     Bindings newBinds ->
       case args of
-        [expr] -> eval' (subBindings newBinds expr)
+        [expr] -> eval' (bindings <> newBinds) expr
         _ -> Left "expected single arg to Binding expression"
-    Builtin _ name -> builtin name args
+    Builtin _ name -> builtin bindings name args >>= eval' bindings
     FuncDef binders expr -> do
-      evalArgs <- traverse eval' args
+      evalArgs <- traverse (eval' bindings) args
       let newBindings = M.fromList $ zip binders evalArgs
-      eval' (subBindings newBindings expr)
+      eval' (bindings <> newBindings) expr
     _ ->  Left $ "expected function not expression: " ++ show f
-eval' (List elems) = List <$> (traverse eval' elems)
-eval' v = Right v
+eval' bindings (List elems) = List <$> traverse (eval' bindings) elems
+eval' _ v = Right v
 
-builtin :: String -> [AST] -> Either String AST
-builtin "def" args = def args
-builtin name args = do
-  evalArgs <- traverse eval' args
+builtin :: Bindings -> String -> [AST] -> Either String AST
+builtin bindings "def" args = def bindings args
+builtin bindings "if" args = if' bindings args
+builtin bindings name args = do
+  evalArgs <- traverse (eval' bindings) args
   builtin' name evalArgs
 
 builtin' :: String -> [AST] -> Either String AST
-builtin' "if" = if'
 builtin' "+" = numBinOp (+)
 builtin' "-" = numBinOp (-)
 builtin' "*" = numBinOp (*)
@@ -57,16 +46,28 @@ builtin' "++" = stringBinOp (++)
 builtin' "=" = eq'
 builtin' "=="  = eqBool
 builtin' "merge" = merge
-builtin' "def" = def
 builtin' name = notFound name
 
-def :: [AST] -> Either String AST
-def [List binders, expr] = do
-  binds <- traverse assertBinders binders
-  return $ FuncDef binds expr
-def args = Left $ "expected list of binders, then an expression; got: " ++ show args
+def :: Bindings -> [AST] -> Either String AST
+def bindings args@[b, expr] = do
+  binders <- eval' bindings b
+  bindStrings <- case binders of
+    List binders' -> traverse assertBinders binders'
+    _ -> Left $ "expected list of binders, then expression; got: " ++ show args
+  return $ FuncDef bindStrings expr
+def _ args = Left $ "expected list of binders, then an expression; got: " ++ show args
+
+if' :: Bindings -> [AST] -> Either String AST
+if' bindings args@[p, x, y] = do
+  res <- eval' bindings p
+  case res of
+    Boolean True -> eval' bindings x
+    Boolean False -> eval' bindings y
+    _ -> Left $ "Expected a Boolean, then two expressions; got:" ++ show args
+if' _ args = Left $ "Expected a Boolean, then two expressions; got:" ++ show args
+
 
 eq' :: [AST] -> Either String AST
-eq' [Binder name, expr] = Right $ Bindings (M.singleton name (sub name expr expr))
+eq' [Binder name, expr] = Right $ Bindings (M.singleton name expr)
 eq' args = Left $ "Expected binder and expression argument to = but got:" ++ show args
 
