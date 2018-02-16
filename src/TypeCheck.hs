@@ -1,6 +1,5 @@
 module TypeCheck where
 
-import Types
 import AST
 import Primitives
 

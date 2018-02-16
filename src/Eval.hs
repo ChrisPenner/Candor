@@ -5,40 +5,43 @@ import RIO
 import AST
 import qualified Data.Map as M
 import Primitives
+import Control.Monad.Reader
+import Control.Monad.Except
 
 eval :: AST -> Either String AST
-eval = eval' primitives
+eval ast = runReaderT (eval' ast) primitives 
 
-eval' :: Bindings -> AST -> Either String AST
-eval' bindings (Symbol name) =
-  case M.lookup name bindings of
-    Just expr -> eval' bindings expr
-    Nothing -> Left $ "no symbol in scope for: " ++ name
-eval' bindings (Appl h []) = eval' bindings h
-eval' bindings (Appl f args) = do
-  appl <- eval' bindings f
+eval' :: AST -> EvalM AST
+eval' (Symbol name) = do
+  res <- asks $ M.lookup name
+  case res of
+    Just expr -> return expr
+    Nothing -> throwError $ "no symbol in scope for: " ++ name
+eval' (Appl h []) = eval' h
+eval' (Appl f args) = do
+  appl <- eval' f
   case appl of
     Bindings newBinds ->
       case args of
-        [expr] -> eval' (bindings <> newBinds) expr
-        _ -> Left "expected single arg to Binding expression"
-    Builtin _ name -> builtin bindings name args >>= eval' bindings
+        [expr] -> local (<> newBinds) $ eval' expr
+        _ -> throwError "expected single arg to Binding expression"
+    Builtin _ name -> builtin name args
     FuncDef binders expr -> do
-      evalArgs <- traverse (eval' bindings) args
+      evalArgs <- traverse eval' args
       let newBindings = M.fromList $ zip binders evalArgs
-      eval' (bindings <> newBindings) expr
-    _ ->  Left $ "expected function not expression: " ++ show f
-eval' bindings (List elems) = List <$> traverse (eval' bindings) elems
-eval' _ v = Right v
+      local (<> newBindings) $ eval' expr
+    _ ->  throwError $ "expected function not expression: " ++ show f
+eval' (List elems) = List <$> traverse eval' elems
+eval' v = return v
 
-builtin :: Bindings -> String -> [AST] -> Either String AST
-builtin bindings "def" args = def bindings args
-builtin bindings "if" args = if' bindings args
-builtin bindings name args = do
-  evalArgs <- traverse (eval' bindings) args
+builtin :: String -> [AST] -> EvalM AST
+builtin "def" args = def args
+builtin "if" args = if' args
+builtin name args = do
+  evalArgs <- traverse eval' args
   builtin' name evalArgs
 
-builtin' :: String -> [AST] -> Either String AST
+builtin' :: String -> [AST] -> EvalM AST
 builtin' "+" = numBinOp (+)
 builtin' "-" = numBinOp (-)
 builtin' "*" = numBinOp (*)
@@ -48,26 +51,26 @@ builtin' "=="  = eqBool
 builtin' "merge" = merge
 builtin' name = notFound name
 
-def :: Bindings -> [AST] -> Either String AST
-def bindings args@[b, expr] = do
-  binders <- eval' bindings b
+def :: [AST] -> EvalM AST
+def args@[b, expr] = do
+  binders <- eval' b
   bindStrings <- case binders of
     List binders' -> traverse assertBinders binders'
-    _ -> Left $ "expected list of binders, then expression; got: " ++ show args
+    _ -> throwError $ "expected list of binders, then expression; got: " ++ show args
   return $ FuncDef bindStrings expr
-def _ args = Left $ "expected list of binders, then an expression; got: " ++ show args
+def args = throwError $ "expected list of binders, then an expression; got: " ++ show args
 
-if' :: Bindings -> [AST] -> Either String AST
-if' bindings args@[p, x, y] = do
-  res <- eval' bindings p
+if' :: [AST] -> EvalM AST
+if' args@[p, x, y] = do
+  res <- eval' p
   case res of
-    Boolean True -> eval' bindings x
-    Boolean False -> eval' bindings y
-    _ -> Left $ "Expected a Boolean, then two expressions; got:" ++ show args
-if' _ args = Left $ "Expected a Boolean, then two expressions; got:" ++ show args
+    Boolean True -> eval' x
+    Boolean False -> eval' y
+    _ -> throwError $ "Expected a Boolean, then two expressions; got:" ++ show args
+if' args = throwError $ "Expected a Boolean, then two expressions; got:" ++ show args
 
 
-eq' :: [AST] -> Either String AST
-eq' [Binder name, expr] = Right $ Bindings (M.singleton name expr)
-eq' args = Left $ "Expected binder and expression argument to = but got:" ++ show args
+eq' :: [AST] -> EvalM AST
+eq' [Binder name, expr] = return $ Bindings (M.singleton name expr)
+eq' args = throwError $ "Expected binder and expression argument to = but got:" ++ show args
 

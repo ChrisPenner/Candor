@@ -1,9 +1,9 @@
 module Primitives where
 
 import AST
-import Types
 
 import RIO
+import Control.Monad.Except
 import qualified Data.Map as M
 
 primitives :: Bindings
@@ -20,31 +20,31 @@ primitives = M.fromList . fmap embed $
   ]
     where embed (x, t) = (x, Builtin t x)
 
-numBinOp :: (Int -> Int -> Int) -> [AST] -> Either String AST
-numBinOp f [Number x, Number y] = Right (Number $ f x y)
-numBinOp _ args = Left $ "expected 2 numbers, got: " ++ show args
+numBinOp :: (Int -> Int -> Int) -> [AST] -> EvalM AST
+numBinOp f [Number x, Number y] = return (Number $ f x y)
+numBinOp _ args = throwError $ "expected 2 numbers, got: " ++ show args
 
-stringBinOp :: (String -> String -> String) -> [AST] -> Either String AST
-stringBinOp f [Str x, Str y] = Right (Str $ f x y)
-stringBinOp _ args = Left $ "expected 2 strings, got: " ++ show (length args)
+stringBinOp :: (String -> String -> String) -> [AST] -> EvalM AST
+stringBinOp f [Str x, Str y] = return (Str $ f x y)
+stringBinOp _ args = throwError $ "expected 2 strings, got: " ++ show (length args)
 
-eqBool :: [AST] -> Either String AST
-eqBool  [a, b] = Right $ Boolean (a == b)
-eqBool _ = Right $ Boolean False
+eqBool :: [AST] -> EvalM AST
+eqBool  [a, b] = return $ Boolean (a == b)
+eqBool _ = return $ Boolean False
 
-merge :: [AST] -> Either String AST
+merge :: [AST] -> EvalM AST
 merge  [List binds] = do
       allBindings <- traverse assertBindings binds
       return . Bindings $ M.unions allBindings
-merge args = Left $ "Expected single list argument to merge but got:" ++ show args
+merge args = throwError $ "Expected single list argument to merge but got:" ++ show args
 
-assertBindings :: AST -> Either String (Map String AST)
-assertBindings (Bindings b) = Right b
-assertBindings b = Left $ "expected bindings; found: " ++ show b
+assertBindings :: AST -> EvalM (Map String AST)
+assertBindings (Bindings b) = return b
+assertBindings b = throwError $ "expected bindings; found: " ++ show b
 
-notFound :: String -> [AST] -> Either String AST
-notFound name args = Left $ "no symbol in scope for " ++ name ++ ": " ++ show args 
+notFound :: String -> [AST] -> EvalM AST
+notFound name args = throwError $ "no symbol in scope for " ++ name ++ ": " ++ show args 
 
-assertBinders :: AST -> Either String String
-assertBinders (Binder name) = Right name
-assertBinders b = Left $ "expected binding symbol; found: " ++ show b
+assertBinders :: AST -> EvalM String
+assertBinders (Binder name) = return name
+assertBinders b = throwError $ "expected binding symbol; found: " ++ show b

@@ -1,16 +1,22 @@
 module Types where
 
-import RIO
+-- import RIO
+-- import Control.Monad.Reader
 
-type TypeBindings = Map String Type
+-- type Bindings = Map String AST
 
-data Type =
-  TNumber
-    | TString
-    | TBool
-    | TBinder
-    | TList Type
-    | TAny
-    | TBindings TypeBindings
-    | TFunc [Type]
-  deriving (Show, Eq)
+-- type TypeBindings = Map String Type
+
+-- data Type =
+--   TNumber
+--     | TString
+--     | TBool
+--     | TBinder
+--     | TList Type
+--     | TAny
+--     | TBindings TypeBindings
+--     | TFunc [Type]
+--   deriving (Show, Eq)
+
+-- type EvalM a = ReaderT Bindings (Either String) a
+

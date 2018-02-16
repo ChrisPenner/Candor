@@ -5,7 +5,7 @@ import RIO
 import Test.Hspec
 import Parse
 import TypeCheck
-import Types
+import AST
 
 spec :: Spec
 spec = do

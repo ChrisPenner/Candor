@@ -19,6 +19,8 @@ spec = do
     it "evals bindings" $ do
       ((parse "((= :times_two (def [:num] (* num 2))) (times_two 10))" >>= eval) `shouldBe`
         Right (Number 20))
+    it "evals nested bindings" $ do
+      ((parse "((= :times_two (def [:num] (* num 2))) ((= :ten (times_two 5)) (+ 5 ten)))" >>= eval) `shouldBe` Right (Number 15))
     it "evals recursive functions" $ do
       (parse "((= :times_two (def [:num] (* num 2))) (times_two (times_two 10)))" >>= eval) `shouldBe` Right (Number 40)
     it "merges bindings" $ do
