@@ -5,7 +5,6 @@ import RIO
 import AST
 import qualified Data.Map as M
 import Primitives
-import Control.Monad.Reader
 import Control.Monad.Except
 
 eval :: AST -> Either String AST
@@ -21,18 +20,22 @@ eval' (Appl h []) = eval' h
 eval' (Appl f args) = do
   appl <- eval' f
   case appl of
-    Bindings newBinds ->
-      case args of
-        [expr] -> local (<> newBinds) $ eval' expr
-        _ -> throwError "expected single arg to Binding expression"
+    Bindings newBinds -> bindings newBinds args
     Builtin _ name -> builtin name args
-    FuncDef binders expr -> do
-      evalArgs <- traverse eval' args
-      let newBindings = M.fromList $ zip binders evalArgs
-      local (<> newBindings) $ eval' expr
+    FuncDef binders expr -> func binders args expr
     _ ->  throwError $ "expected function not expression: " ++ show f
 eval' (List elems) = List <$> traverse eval' elems
 eval' v = return v
+
+bindings :: Bindings -> [AST] -> EvalM AST
+bindings newBinds [expr] = local (<> newBinds) $ eval' expr
+bindings _ _ = throwError "expected single arg to Binding expression"
+
+func :: [String] -> [AST] -> AST -> EvalM AST
+func binders args expr = do
+  evalArgs <- traverse eval' args
+  let newBindings = M.fromList $ zip binders evalArgs
+  local (<> newBindings) $ eval' expr
 
 builtin :: String -> [AST] -> EvalM AST
 builtin "def" args = def args
@@ -52,8 +55,7 @@ builtin' "merge" = merge
 builtin' name = notFound name
 
 def :: [AST] -> EvalM AST
-def args@[b, expr] = do
-  binders <- eval' b
+def args@[binders, expr] = do
   bindStrings <- case binders of
     List binders' -> traverse assertBinders binders'
     _ -> throwError $ "expected list of binders, then expression; got: " ++ show args
