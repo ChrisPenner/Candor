@@ -73,6 +73,8 @@ if' args = throwError $ "Expected a Boolean, then two expressions; got:" ++ show
 
 
 eq' :: [AST] -> EvalM AST
-eq' [Binder name, expr] = return $ Bindings (M.singleton name expr)
+eq' [Binder name, expr] = do
+  local (const $ M.singleton name expr) $ eval' expr
+  return $ Bindings (M.singleton name expr)
 eq' args = throwError $ "Expected binder and expression argument to = but got:" ++ show args
 
