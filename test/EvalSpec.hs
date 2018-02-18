@@ -1,3 +1,4 @@
+{-# language OverloadedLists #-}
 module EvalSpec where
 
 import RIO
@@ -7,16 +8,27 @@ import Parse
 import Eval
 import AST
 
+expectedRecursion :: AST
+expectedRecursion = Appl (Appl (Symbol "=") [Binder "func", (Appl (Symbol "def") [List [ Binder "cond" ], (Appl (Symbol "if") [Symbol "cond", Number 5, (Appl (Symbol "func") [Boolean False])])])]) [Appl (Symbol "func") [Boolean True]]
+
+recursiveFactorial :: AST
+recursiveFactorial = Appl (Appl (Symbol "=") [Binder "fact", (Appl (Symbol "def") [List [ Binder "num" ], (Appl (Symbol "if") [Appl (Symbol "==") [Symbol "num", Number 0], Number 1, (Appl (Symbol "*") [Appl (Symbol "fact") [Appl (Symbol "-") [Symbol "num", Number 1]], Symbol "num"])])])]) [Appl (Symbol "fact") [Number 1]]
 
 spec :: Spec
 spec = do
   describe "Eval" $ do
+    it "handles recursive stuff" $ do
+      parse "((= :func (def [:cond] (if cond 5 (func F)))) (func T))" `shouldBe` Right expectedRecursion
+      eval expectedRecursion `shouldBe` Right (Number 5)
+      eval recursiveFactorial `shouldBe` Right (Number 1)
     it "evals simple arithmetic" $ do
       (parse "(+ 1 2)" >>= eval) `shouldBe` Right (Number 3)
       (parse "(- (+ 1 2) 3)" >>= eval) `shouldBe` Right (Number 0)
     it "evals functions" $ do
       (parse "((def [:num] (* num 2)) 5)" >>= eval) `shouldBe` Right (Number 10)
-    it "evals bindings" $ do
+    it "evals literal bindings" $ do
+      (parse "((= :num 5) (+ 1 num))" >>= eval) `shouldBe` Right (Number 6)
+    it "evals func bindings" $ do
       ((parse "((= :times_two (def [:num] (* num 2))) (times_two 10))" >>= eval) `shouldBe`
         Right (Number 20))
     it "evals nested bindings" $ do
