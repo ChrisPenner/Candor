@@ -6,7 +6,6 @@ import AST
 import qualified Data.Map as M
 import Primitives
 import Control.Monad.Except
-import Debug.Trace (trace)
 
 eval :: AST -> Either String AST
 eval ast = runReaderT (eval' ast) primitives
@@ -15,29 +14,28 @@ eval' :: AST -> EvalM AST
 eval' (Symbol name) = do
   res <- asks (M.lookup name)
   case res of
-    Just expr -> trace ("found name: " ++ name ++ ": " ++ show expr) $ eval' expr
+    Just expr -> eval' expr
     Nothing -> throwError $ "no symbol in scope for: " ++ name
 eval' (Appl h []) = eval' h
 eval' (Appl f args) = do
-  appl <- trace ("evaluating APPL head: " ++ show f) (eval' f)
+  appl <- eval' f
   case appl of
     Bindings newBinds -> bindings newBinds args
-    Builtin _ name -> trace ("evalling builtin: " ++ show name) $ builtin name args
+    Builtin _ name -> builtin name args
     FuncDef binders expr -> func binders args expr
     _ ->  throwError $ "expected function not expression: " ++ show f
 eval' (List elems) = List <$> traverse eval' elems
 eval' v = return v
 
 bindings :: Bindings -> [AST] -> EvalM AST
-bindings newBinds [expr] = trace ("evalling: " ++ show expr ++ " with: " ++ show newBinds) local (newBinds <>) $ eval' expr
+bindings newBinds [expr] = local (newBinds <>) $ eval' expr
 bindings _ _ = throwError "expected single arg to Binding expression"
 
 func :: [String] -> [AST] -> AST -> EvalM AST
 func binders args expr = do
   evalArgs <- traverse eval' args
   let newBindings = M.fromList $ zip binders evalArgs
-  res <- trace ("Running Function with args: " ++ show evalArgs ++ "\n and EXPR: " ++ show expr) (local (newBindings <>) $ eval' expr)
-  trace ("got result: " ++ show res) (return res)
+  local (newBindings <>) $ eval' expr
 
 builtin :: String -> [AST] -> EvalM AST
 builtin "+" = numBinOp (+)
@@ -56,29 +54,29 @@ def args@[binders, expr] = do
   bindStrings <- case binders of
     List binders' -> traverse assertBinders binders'
     _ -> throwError $ "expected list of binders, then expression; got: " ++ show args
-  trace ("defined new function: " ++ show (FuncDef bindStrings expr)) . return $ FuncDef bindStrings expr
+  return $ FuncDef bindStrings expr
 def args = throwError $ "expected list of binders, then an expression; got: " ++ show args
 
 if' :: [AST] -> EvalM AST
 if' [p, x, y] = do
   res <- eval' p
   case res of
-    Boolean True -> trace ("if was true, evalling: " ++ show x) $ eval' x
-    Boolean False -> trace ("if was false, evalling: " ++ show x) $ eval' y
+    Boolean True -> eval' x
+    Boolean False -> eval' y
     _ -> throwError $ "Expected a Boolean predicate, got: " ++ show res
 if' args = throwError $ "Expected a Boolean, then two expressions; got:" ++ show args
 
 eq' :: [AST] -> EvalM AST
 eq' [Binder name, expr] = do
   res <- eval' expr
-  trace ("assigning " ++ name ++ " to: " ++ show expr) (return $ Bindings (M.singleton name res))
+  return $ Bindings (M.singleton name res)
 eq' args = throwError $ "Expected binder and expression argument to = but got:" ++ show args
 
 numBinOp :: (Int -> Int -> Int) -> [AST] -> EvalM AST
 numBinOp f [x, y] = do
   bindMap <- ask
-  res <- trace ("evalling args: " ++ show [x, y] ++ " with: " ++ show bindMap) $ traverse eval' [x, y]
-  case trace ("resolved args to: " ++ show res) res of
+  res <- traverse eval' [x, y]
+  case res of
     [Number x', Number y'] -> return $ Number (f x' y')
     args -> throwError $ "expected 2 number args, got:" ++ show args
 numBinOp _ args = throwError $ "expected 2 numbers, got: " ++ show args
