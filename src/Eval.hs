@@ -74,7 +74,6 @@ eq' args = throwError $ "Expected binder and expression argument to = but got:" 
 
 numBinOp :: (Int -> Int -> Int) -> [AST] -> EvalM AST
 numBinOp f [x, y] = do
-  bindMap <- ask
   res <- traverse eval' [x, y]
   case res of
     [Number x', Number y'] -> return $ Number (f x' y')
