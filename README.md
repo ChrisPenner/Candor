@@ -12,13 +12,14 @@ and type inference. It's a simple lisp-like expression-based language.
 (++ "hello, " "world!")
 ;; hello, world!
 
-;; You can define lambdas using curly braces, `:` denotes a symbol binding position
-({[:num] (* num num)} 5)
+;; You can define lambdas using the `def` keyword; `:` denotes symbols in a binding position
+((def [:num] (* num num)) 5)
+;; 25
 
 ;; `=` creates a binding between a symbol and an expression.
 ;; You then call the binding as though it's a function to bring its bindings into scope:
 (
-    (= :square {[:num] (* num num)}) 
+    (= :square (def [:num] (* num num))) 
     (square 5)
 )
 ;; 25
@@ -27,7 +28,7 @@ and type inference. It's a simple lisp-like expression-based language.
 (
     (merge [ (= :x 10)
              (= :y 42)
-             (= :square {[:num] (* num num)})])
+             (= :square (def [:num] (* num num)))])
     (+ (square x) y)
     )
 )
@@ -35,9 +36,9 @@ and type inference. It's a simple lisp-like expression-based language.
 ```
 
 Currently unsupported:
-- Any sort of recursion
-- Type inference
-- IO
-- Datatypes
+- [x]  ~~Recursion~~
+- [ ]  Type inference
+- [ ]  IO
+- [ ]  Datatypes
 
 Like seriously, don't even try and use this thing.
