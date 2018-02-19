@@ -1,0 +1,6 @@
+((merge 
+  [(= :times_two (def [:num] (* num 2)))
+   (= :inc (def [:num] (+ 1 num)))
+  ]) 
+ (times_two (inc 1))
+)

@@ -59,4 +59,4 @@ list :: Parser [AST]
 list = between (symbol "[") (symbol "]") (many expression)
 
 parse :: String -> Either String AST
-parse s = first (parseErrorPretty' s)  $ MP.parse expression "" s
+parse s = first (parseErrorPretty' s)  $ MP.parse (expression <* eof) "" s

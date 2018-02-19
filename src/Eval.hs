@@ -39,7 +39,7 @@ func binders args expr = do
 
 builtin :: String -> [AST] -> EvalM AST
 builtin "+" = numBinOp (+)
-builtin "-" = numBinOp subtract
+builtin "-" = numBinOp (-)
 builtin "*" = numBinOp (*)
 builtin "++" = stringBinOp (++)
 builtin "=" = eq'
