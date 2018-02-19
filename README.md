@@ -35,6 +35,20 @@ and type inference. It's a simple lisp-like expression-based language.
 ;; 142
 ```
 
+Here's a recursive factorial function:
+
+```lisp
+(
+  (= :fact 
+    (def [:num] 
+      (if (== num 0) 
+        1 
+        (* num (fact (- num 1)))))
+  ) 
+  (fact 0)
+)
+```
+
 Currently unsupported:
 - [x]  ~~Recursion~~
 - [ ]  Type inference
