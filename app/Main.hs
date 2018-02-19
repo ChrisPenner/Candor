@@ -32,5 +32,5 @@ main = flip catchAny print $ do
                 _ -> throwIO $ ArgError "usage: candor <filename>"
 
   ast <- either (throwIO . ParseError) return (parse file)
-  result <- either (throwIO . ParseError) return (eval ast)
+  result <- either (throwIO . EvalError) return (eval ast)
   print result
