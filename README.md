@@ -3,6 +3,11 @@
 A toy language I'm writing to learn more about parsing, compiling, typechecking
 and type inference. It's a simple lisp-like expression-based language.
 
+Usage:
+
+- `stack build && stack exec candor-exe -- ./my-prog.cndr`
+
+
 ```lisp
 ;; It uses prefix notation for function application
 ;; Variadic functions are not yet supported

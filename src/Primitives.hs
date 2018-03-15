@@ -7,14 +7,14 @@ import qualified Data.Map as M
 
 primitives :: Bindings
 primitives = M.fromList . fmap embed $
-  [ ("+", TFunc [TNumber, TNumber, TNumber])
-  , ("-", TFunc [TNumber, TNumber, TNumber])
-  , ("*", TFunc [TNumber, TNumber, TNumber])
-  , ("=", TFunc [TBinder, TAny, TBindings mempty])
-  , ("def", TFunc [TList TBinder, TAny, TFunc [TList TBinder, TAny]])
-  , ("merge", TFunc [TList (TBindings mempty), TBindings mempty])
-  , ("++", TFunc [TString, TString, TString])
-  , ("if", TFunc [TBool, TAny, TAny])
-  , ("==", TFunc [TAny, TAny, TBool])
+  [ ("+", TFunc intT (TFunc intT intT))
+  , ("-", TFunc intT (TFunc intT intT))
+  , ("*", TFunc intT (TFunc intT intT))
+  , ("=", TFunc binderT (TFunc varT bindingsT))
+  , ("def", TFunc (TList binderT) varT)
+  , ("merge", TFunc (TList bindingsT) bindingsT)
+  , ("++", TFunc stringT (TFunc stringT stringT))
+  , ("if", TFunc boolT (TFunc varT (TFunc varT varT)))
+  , ("==", TFunc varT (TFunc varT boolT))
   ]
     where embed (x, t) = (x, Builtin t x)

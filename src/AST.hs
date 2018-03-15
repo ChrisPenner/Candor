@@ -11,24 +11,45 @@ data AST =
   | Binder String
   | FuncDef [String] AST
   | List [AST]
-  | Builtin Type String
+  | Builtin Monotype String
   | Bindings (Map String AST)
   deriving (Show, Eq)
 
 type Bindings = Map String AST
 
-type TypeBindings = Map String Type
-
-data Type =
-  TNumber
-    | TString
-    | TBool
-    | TBinder
-    | TList Type
-    | TAny
-    | TBindings TypeBindings
-    | TFunc [Type]
-  deriving (Show, Eq)
+-- data Type =
+--   TNumber
+--     | TString
+--     | TBool
+--     | TBinder
+--     | TList Type
+--     | TAny
+--     | TBindings TypeBindings
+--     | TFunc [Type]
+--   deriving (Show, Eq)
 
 type EvalM a = ReaderT Bindings (Either String) a
 
+data TypeConst = IntT | StringT | BoolT | BinderT | BindingsT
+  deriving (Show, Eq)
+
+intT, stringT, boolT, binderT, bindingsT :: Monotype
+intT = TConst IntT
+stringT = TConst StringT
+boolT = TConst BoolT
+binderT = TConst BinderT
+bindingsT = TConst BindingsT
+varT = TVar "a"
+
+data Monotype =
+  TVar String
+    | TConst TypeConst  -- Things like Int, (), etc
+    | TFunc Monotype Monotype
+    | TList Monotype -- List of types
+    deriving Eq
+
+instance Show Monotype where
+  show (TVar s) = s
+  show (TConst s) = show s
+  show (TFunc a b) = "(" <> show a <> " -> " <> show b <> ")"
+  show (TList m) = "[" <> show m <> "]"
