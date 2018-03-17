@@ -1,9 +1,11 @@
 {-# language OverloadedLists #-}
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
+{-# language TypeFamilies #-}
 module TypeInference where
 
 import AST
+import GHC.Exts
 
 import RIO
 import Data.Set as S
@@ -27,6 +29,13 @@ instance Monoid Substitutions where
       Substitutions s2 = sub subst1 subst2
 
   mempty = Substitutions mempty
+
+instance IsList Substitutions where
+  type Item Substitutions = (String, Monotype)
+-- fromList :: [(String, Monotype)] -> Substitutions
+  fromList = Substitutions . M.fromList
+
+
 
 freshName :: InferM String
 freshName = do
@@ -117,6 +126,9 @@ instance Unifyable Monotype Monotype where
       bindVar name t = return $ Substitutions [(name, t)]
   unify (TConst a) (TConst b) | a == b = return mempty
   unify (TList a) (TList b) = unify a b
+  unify (TFunc a b) (TFunc a' b') = do
+    subs <- unify a a'
+    unify (sub subs b) b'
   unify a b = throwError (CannotUnify a b)
 
 extendEnv :: Env -> String -> Polytype -> Env
