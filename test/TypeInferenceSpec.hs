@@ -9,7 +9,7 @@ import TypeInference
 
 spec :: Spec
 spec = do
-  describe "TypeInference" $ do
+  describe "unify" $ do
     describe "unifies monotypes" $ do
       it "unifies TConsts as expected" $ do
         runInference (unify intT intT) `shouldBe` Right mempty
@@ -37,4 +37,18 @@ spec = do
         it "unifies functions with required substitutions" $ do
           runInference (unify (TFunc (TVar "a") (TVar "a")) (TFunc stringT intT)) `shouldBe` Left (CannotUnify stringT intT)
           runInference (unify (TFunc (TVar "a") (TFunc intT (TVar "a"))) (TFunc intT (TFunc intT intT))) `shouldBe` Right []
-          -- runInference (unify (TFunc stringT intT) (TFunc stringT intT)) `shouldBe` Right mempty
+
+  describe "infer" $ do
+    it "infers type of basic AST types" $ do
+      runInference (infer mempty (Str "string")) `shouldBe` Right (mempty, stringT)
+      runInference (infer mempty (Number 1)) `shouldBe` Right (mempty, intT)
+      runInference (infer mempty (Boolean False)) `shouldBe` Right (mempty, boolT)
+      runInference (infer mempty (Binder "var")) `shouldBe` Right (mempty, binderT)
+      runInference (infer mempty (Bindings mempty)) `shouldBe` Right (mempty, bindingsT)
+    it "infers type of Builtins" $ do
+      runInference (infer mempty (Builtin stringT "builtin")) `shouldBe` Right (mempty, stringT)
+    describe "Lists" $ do
+      it "infers type of homogenous lists" $ do
+        runInference (infer mempty (List [Str "a", Str "b"])) `shouldBe` Right (mempty, TList stringT)
+      it "errors on heterogenous lists" $ do
+        runInference (infer mempty (List [Str "a", Number 1])) `shouldBe` Left (CannotUnify stringT intT)

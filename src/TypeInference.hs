@@ -2,14 +2,15 @@
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
+{-# language GeneralizedNewtypeDeriving #-}
 module TypeInference where
 
 import AST
 import GHC.Exts
 
 import RIO
-import Data.Set as S
-import Data.Map as M
+import qualified Data.Set as S
+import qualified Data.Map as M
 import Data.List as L
 import Data.Foldable
 import Control.Monad.State
@@ -18,7 +19,14 @@ import qualified Data.Bifunctor as Bi
 
 type FreeTypes = S.Set String
 type InferM a = ExceptT InferenceError (State [String]) a
+
 newtype Env = Env (M.Map String Polytype)
+  deriving (Show, Monoid)
+
+instance IsList Env where
+  type Item Env = (String, Polytype)
+  fromList = Env . M.fromList
+
 newtype Substitutions = Substitutions (M.Map String Monotype)
   deriving (Show, Eq)
 
@@ -32,7 +40,6 @@ instance Monoid Substitutions where
 
 instance IsList Substitutions where
   type Item Substitutions = (String, Monotype)
--- fromList :: [(String, Monotype)] -> Substitutions
   fromList = Substitutions . M.fromList
 
 
@@ -143,8 +150,7 @@ infer env ast =
     -- Symbol name -> inferSymbol env name 
     Binder{} -> return (mempty, binderT)
     -- FuncDef{} -> TConst "Symbol"
-    List [] -> return $ (mempty, TList varT)
-    List (a:_) -> Bi.second TList <$> infer env a
+    List l -> inferList env l
     Builtin t _ -> return (mempty, t)
     Bindings{} -> return (mempty, bindingsT)
     -- Appl f args -> do
@@ -156,6 +162,14 @@ infer env ast =
       -- (argSubs, argType) <- infer env arg
       -- (moreSubs, returnType) <- applType fType argType
       -- return (sub (moreSubs <> argSubs) env, returnType)
+
+inferList :: Env -> [AST] -> InferM (Substitutions, Monotype)
+-- inferList env [] = return (mempty, TList (TVar "any"))
+inferList env xs = do
+  (subs, (t:ts)) <- unzip <$> traverse (infer env) xs
+  foldM_ (\a b -> unify a b *> pure b) t ts
+  return (fold subs, TList t)
+
 
 applType :: Monotype -> Monotype -> InferM (Substitutions, Monotype)
 applType (TFunc accept returnType) arg = do
