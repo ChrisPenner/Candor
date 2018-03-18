@@ -25,8 +25,7 @@ spec = do
           runInference (unify (TVar "a") intT) `shouldBe` Right ([("a", intT)])
           runInference (unify (TVar "a") stringT) `shouldBe` Right ([("a", stringT)])
           runInference (unify (TVar "a") boolT) `shouldBe` Right ([("a", boolT)])
-        it "cannot unify in reverse" $ do
-          runInference (unify intT (TVar "a")) `shouldBe` Left (CannotUnify intT (TVar "a"))
+          runInference (unify intT (TVar "a")) `shouldBe` Right ([("a", intT)])
       describe "TList" $ do
         it "unifies recursively" $ do
           runInference (unify (TList intT) (TList intT)) `shouldBe` Right mempty
@@ -39,16 +38,34 @@ spec = do
           runInference (unify (TFunc (TVar "a") (TFunc intT (TVar "a"))) (TFunc intT (TFunc intT intT))) `shouldBe` Right []
 
   describe "infer" $ do
-    it "infers type of basic AST types" $ do
+    it "basic AST types" $ do
       runInference (infer mempty (Str "string")) `shouldBe` Right (mempty, stringT)
       runInference (infer mempty (Number 1)) `shouldBe` Right (mempty, intT)
       runInference (infer mempty (Boolean False)) `shouldBe` Right (mempty, boolT)
       runInference (infer mempty (Binder "var")) `shouldBe` Right (mempty, binderT)
       runInference (infer mempty (Bindings mempty)) `shouldBe` Right (mempty, bindingsT)
-    it "infers type of Builtins" $ do
+    it "Builtins" $ do
       runInference (infer mempty (Builtin stringT "builtin")) `shouldBe` Right (mempty, stringT)
     describe "Lists" $ do
       it "infers type of homogenous lists" $ do
         runInference (infer mempty (List [Str "a", Str "b"])) `shouldBe` Right (mempty, TList stringT)
       it "errors on heterogenous lists" $ do
         runInference (infer mempty (List [Str "a", Number 1])) `shouldBe` Left (CannotUnify stringT intT)
+    describe "Symbols" $ do
+      it "infers type of symbols from env" $ do
+        runInference (infer [("a", Forall mempty intT)] (Symbol "a")) `shouldBe` Right (mempty, intT)
+    describe "FuncDefs" $ do
+      it "infers type of functions" $ do
+        runInference (infer mempty (FuncDef ["a"] (Symbol "a"))) `shouldBe` Right (mempty, TFunc (TVar "a") (TVar "a"))
+        runInference (infer mempty (FuncDef ["a"] (Number 1))) `shouldBe` Right (mempty, TFunc (TVar "a") intT)
+        runInference (infer mempty (FuncDef ["a"] (List [Number 1, Symbol "a"]))) `shouldBe` Right ([("a", intT)], TFunc intT (TList intT))
+        runInference (infer mempty (FuncDef ["a", "b"] (List [Symbol "a", Symbol "b"]))) `shouldBe` Right ([("a", TVar "b")], TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b"))))
+    describe "Appl" $ do
+      it "infers proper return type" $ do
+        runInference (infer mempty (Appl (FuncDef ["a"] (Symbol "a")) [Number 1])) `shouldBe` Right ([("a", intT)], intT)
+        runInference (infer mempty
+          (Appl
+            (FuncDef ["a", "b"]
+              (Appl (Builtin (TFunc intT (TFunc intT intT)) "+")
+                [Symbol "a", Symbol "b"]))
+            [Number 1, Number 2])) `shouldBe` Right (mempty, intT)

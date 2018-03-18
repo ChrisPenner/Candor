@@ -3,6 +3,7 @@
 {-# language MultiParamTypeClasses #-}
 {-# language TypeFamilies #-}
 {-# language GeneralizedNewtypeDeriving #-}
+{-# language ViewPatterns #-}
 module TypeInference where
 
 import AST
@@ -125,18 +126,19 @@ class Unifyable a b where
 instance Unifyable Monotype Monotype where
   unify :: Monotype -> Monotype -> InferM Substitutions
   unify (TVar a) b = bindVar a b
-    where
-      bindVar :: String -> Monotype -> InferM Substitutions
-      bindVar name (TVar t) | name == t = pure mempty
-      bindVar name t | name `S.member` getFree t = 
-        throwError $ OccursCheckFailed name t
-      bindVar name t = return $ Substitutions [(name, t)]
+  unify a (TVar b) = bindVar b a
   unify (TConst a) (TConst b) | a == b = return mempty
   unify (TList a) (TList b) = unify a b
   unify (TFunc a b) (TFunc a' b') = do
     subs <- unify a a'
     unify (sub subs b) b'
   unify a b = throwError (CannotUnify a b)
+
+bindVar :: String -> Monotype -> InferM Substitutions
+bindVar name (TVar t) | name == t = pure mempty
+bindVar name t | name `S.member` getFree t = 
+  throwError $ OccursCheckFailed name t
+bindVar name t = return $ Substitutions [(name, t)]
 
 extendEnv :: Env -> String -> Polytype -> Env
 extendEnv (Env m) name t = Env $ M.insert name t m
@@ -147,55 +149,70 @@ infer env ast =
     Str{} -> return (mempty, stringT)
     Number{} -> return (mempty, intT)
     Boolean{} -> return (mempty, boolT)
-    -- Symbol name -> inferSymbol env name 
+    Symbol name -> inferSymbol env name 
     Binder{} -> return (mempty, binderT)
-    -- FuncDef{} -> TConst "Symbol"
+    FuncDef args expr -> inferFunc env args expr
     List l -> inferList env l
     Builtin t _ -> return (mempty, t)
     Bindings{} -> return (mempty, bindingsT)
-    -- Appl f args -> do
-      -- (subs, fType) <- infer env f
-      -- foldlM foldArgs (sub subs env, fType) args
-  -- where
-    -- foldArgs :: (Env, Monotype) -> AST -> InferM (Env, Monotype)
-    -- foldArgs (env, fType) arg = do
-      -- (argSubs, argType) <- infer env arg
-      -- (moreSubs, returnType) <- applType fType argType
-      -- return (sub (moreSubs <> argSubs) env, returnType)
+    Appl f args -> do
+      inferAppl env f args
+
+inferAppl :: Env -> AST -> [AST] -> InferM (Substitutions, Monotype)
+inferAppl env f args = do
+  (subs, fType) <- infer env f
+  (subs', argTypes) <- unzip <$> traverse (infer env) args
+  foldM go (mempty, fType) argTypes
+    where
+      go (subs, fType) next = applType fType (sub subs next)
+
+applType :: Monotype -> Monotype -> InferM (Substitutions, Monotype)
+applType (TFunc accept returnType) arg = do
+  subs <- unify accept arg
+  return (subs, sub subs returnType)
+
+
+inferFunc :: Env -> [String] -> AST -> InferM (Substitutions, Monotype)
+inferFunc env args expr = do
+  let argSet = S.fromList args
+      env' = Env $ M.fromSet (Forall mempty . TVar) argSet
+  (subs, returnType) <- infer (env  <> env') expr
+  let argTypes = sub subs . TVar <$> args
+  return (subs, nestFuncs argTypes (sub subs returnType))
+
+nestFuncs :: [Monotype] -> Monotype -> Monotype
+nestFuncs (x:[]) returnType = TFunc x returnType
+nestFuncs (x:xs) returnType = TFunc x (nestFuncs xs returnType)
 
 inferList :: Env -> [AST] -> InferM (Substitutions, Monotype)
 -- inferList env [] = return (mempty, TList (TVar "any"))
 inferList env xs = do
   (subs, (t:ts)) <- unzip <$> traverse (infer env) xs
-  foldM_ (\a b -> unify a b *> pure b) t ts
-  return (fold subs, TList t)
+  subs' <- sequenceA $ zipWith unify (t:ts) ts
+  return (fold (subs <> subs'), TList t)
 
 
-applType :: Monotype -> Monotype -> InferM (Substitutions, Monotype)
-applType (TFunc accept returnType) arg = do
-  subs <- unify accept arg
-  return (subs, returnType)
-
--- inferSymbol :: Env -> String -> InferM (Substitutions, Monotype)
--- inferSymbol env name = do
---   symbolType <- lookupSymbol env name
---   boundMonotype <- freshNameAll symbolType
---   return (mempty, boundMonotype)
-
--- freshNameAll :: Polytype -> InferM Monotype
--- freshNameAll (Forall qs t) = do
---     mapping <- substituteAllWithFresh qs
---     pure (sub mapping t)
---   where
---     -- For each given name, add a substitution from that name to a fresh type
---     -- variable to the result.
---     substituteAllWithFresh :: Set String -> InferM Substitutions
---     substituteAllWithFresh xs = do
---         let freshSubstActions = M.fromSet (const freshName) xs
---         Substitutions freshSubsts <- sequenceA freshSubstActions
---         return . Substitutions $ (TVar <$> freshSubsts)
+inferSymbol :: Env -> String -> InferM (Substitutions, Monotype)
+inferSymbol env name = do
+  symbolType <- lookupSymbol env name
+  boundMonotype <- freshNameAll symbolType
+  return (mempty, boundMonotype)
 
 lookupSymbol :: Env -> String -> InferM Polytype
-lookupSymbol (Env env) name = case M.lookup name env of
+lookupSymbol (Env env) name = 
+  case M.lookup name env of
     Just x  -> return x
     Nothing -> throwError (UnknownIdentifier name)
+
+freshNameAll :: Polytype -> InferM Monotype
+freshNameAll (Forall qs t) = do
+    mapping <- substituteAllWithFresh qs
+    pure (sub mapping t)
+  where
+    -- For each given name, add a substitution from that name to a fresh type
+    -- variable to the result.
+    substituteAllWithFresh :: Set String -> InferM Substitutions
+    substituteAllWithFresh xs = do
+        let freshSubstActions = M.fromSet (const freshName) xs
+        freshSubsts <- sequenceA freshSubstActions
+        return . Substitutions $ (TVar <$> freshSubsts)

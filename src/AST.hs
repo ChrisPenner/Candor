@@ -17,17 +17,6 @@ data AST =
 
 type Bindings = Map String AST
 
--- data Type =
---   TNumber
---     | TString
---     | TBool
---     | TBinder
---     | TList Type
---     | TAny
---     | TBindings TypeBindings
---     | TFunc [Type]
---   deriving (Show, Eq)
-
 type EvalM a = ReaderT Bindings (Either String) a
 
 data TypeConst = IntT | StringT | BoolT | BinderT | BindingsT
