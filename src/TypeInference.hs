@@ -15,9 +15,13 @@ import Data.List as L
 import Data.List.NonEmpty as NE (NonEmpty(..), toList)
 import Control.Monad.State
 import Control.Monad.Except
+import Primitives
 
 import AST
 import Types
+
+inferType :: AST -> Either InferenceError Monotype
+inferType = fmap snd . runInference . infer (Env primitiveTypes)
 
 type InferM a = ExceptT InferenceError (State [String]) a
 
@@ -164,6 +168,7 @@ applType :: Monotype -> Monotype -> InferM (Substitutions, Monotype)
 applType (TFunc accept returnType) arg = do
   subs <- unify accept arg
   return (subs, sub subs returnType)
+applType ast _ = error $ "expected TFunc but got: " ++ show ast
 
 
 inferFunc :: Env -> NonEmpty String -> AST -> InferM (Substitutions, Monotype)
