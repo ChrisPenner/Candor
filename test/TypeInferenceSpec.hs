@@ -49,6 +49,13 @@ spec = do
     describe "Lists" $ do
       it "infers type of homogenous lists" $ do
         runInference (infer mempty (List [Str "a", Str "b"])) `shouldBe` Right (mempty, TList stringT)
+      it "infers unused type var for empty lists" $ do
+        runInference (infer mempty (List [])) `shouldBe` Right (mempty, TList (TVar "a"))
+        let res = runInference $ do
+              a <- infer mempty (List [])
+              b <- infer mempty (List [])
+              return (a, b)
+        res `shouldBe` Right ((mempty, (TList (TVar "a"))), (mempty, TList (TVar "b")))
       it "errors on heterogenous lists" $ do
         runInference (infer mempty (List [Str "a", Number 1])) `shouldBe` Left (CannotUnify stringT intT)
     describe "Symbols" $ do

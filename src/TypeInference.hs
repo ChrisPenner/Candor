@@ -137,7 +137,7 @@ instance Unifyable Monotype Monotype where
 bindVar :: String -> Monotype -> InferM Substitutions
 bindVar name (TVar t) | name == t = pure mempty
 bindVar name t | name `S.member` getFree t = 
-  throwError $ OccursCheckFailed name t
+  throwError $ OccursCheckFailed name t -- Can't bind a type var to a definition containing the same type var: infinite recursion
 bindVar name t = return $ Substitutions [(name, t)]
 
 extendEnv :: Env -> String -> Polytype -> Env
@@ -185,7 +185,9 @@ nestFuncs (x:[]) returnType = TFunc x returnType
 nestFuncs (x:xs) returnType = TFunc x (nestFuncs xs returnType)
 
 inferList :: Env -> [AST] -> InferM (Substitutions, Monotype)
--- inferList env [] = return (mempty, TList (TVar "any"))
+inferList env [] = do
+  fresh <- freshName
+  return (mempty, TList (TVar fresh))
 inferList env xs = do
   (subs, (t:ts)) <- unzip <$> traverse (infer env) xs
   subs' <- sequenceA $ zipWith unify (t:ts) ts
