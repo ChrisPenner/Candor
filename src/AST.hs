@@ -11,7 +11,7 @@ data AST =
   | Binder String
   | FuncDef [String] AST
   | List [AST]
-  | Builtin Monotype String
+  | Builtin String
   | Bindings (Map String AST)
   deriving (Show, Eq)
 

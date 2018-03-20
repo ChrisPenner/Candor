@@ -150,10 +150,10 @@ infer env ast =
     Number{} -> return (mempty, intT)
     Boolean{} -> return (mempty, boolT)
     Symbol name -> inferSymbol env name 
+    Builtin name -> inferSymbol env name
     Binder{} -> return (mempty, binderT)
     FuncDef args expr -> inferFunc env args expr
     List l -> inferList env l
-    Builtin t _ -> return (mempty, t)
     Bindings{} -> return (mempty, bindingsT)
     Appl f args -> do
       inferAppl env f args

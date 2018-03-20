@@ -6,6 +6,7 @@ import RIO
 import Test.Hspec
 import AST
 import TypeInference
+import Primitives
 
 spec :: Spec
 spec = do
@@ -45,7 +46,7 @@ spec = do
       runInference (infer mempty (Binder "var")) `shouldBe` Right (mempty, binderT)
       runInference (infer mempty (Bindings mempty)) `shouldBe` Right (mempty, bindingsT)
     it "Builtins" $ do
-      runInference (infer mempty (Builtin stringT "builtin")) `shouldBe` Right (mempty, stringT)
+      runInference (infer (Env primitiveTypes) (Builtin "++")) `shouldBe` Right (mempty, TFunc stringT (TFunc stringT stringT))
     describe "Lists" $ do
       it "infers type of homogenous lists" $ do
         runInference (infer mempty (List [Str "a", Str "b"])) `shouldBe` Right (mempty, TList stringT)
@@ -69,10 +70,10 @@ spec = do
         runInference (infer mempty (FuncDef ["a", "b"] (List [Symbol "a", Symbol "b"]))) `shouldBe` Right ([("a", TVar "b")], TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b"))))
     describe "Appl" $ do
       it "infers proper return type" $ do
-        runInference (infer mempty (Appl (FuncDef ["a"] (Symbol "a")) [Number 1])) `shouldBe` Right ([("a", intT)], intT)
-        runInference (infer mempty
+        runInference (infer (Env primitiveTypes) (Appl (FuncDef ["a"] (Symbol "a")) [Number 1])) `shouldBe` Right ([("a", intT)], intT)
+        runInference (infer (Env primitiveTypes)
           (Appl
             (FuncDef ["a", "b"]
-              (Appl (Builtin (TFunc intT (TFunc intT intT)) "+")
+              (Appl (Builtin  "+")
                 [Symbol "a", Symbol "b"]))
             [Number 1, Number 2])) `shouldBe` Right (mempty, intT)

@@ -21,7 +21,7 @@ eval' (Appl f args) = do
   appl <- eval' f
   case appl of
     Bindings newBinds -> bindings newBinds args
-    Builtin _ name -> builtin name args
+    Builtin name -> builtin name args
     FuncDef binders expr -> func binders args expr
     _ ->  throwError $ "expected function not expression: " ++ show f
 eval' (List elems) = List <$> traverse eval' elems
