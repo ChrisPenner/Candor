@@ -4,6 +4,7 @@ module Eval where
 import RIO
 import AST
 import qualified Data.Map as M
+import Data.List.NonEmpty (NonEmpty(..))
 import Primitives
 import Control.Monad.Except
 
@@ -31,8 +32,8 @@ bindings :: Bindings -> [AST] -> EvalM AST
 bindings newBinds [expr] = local (newBinds <>) $ eval' expr
 bindings _ _ = throwError "expected single arg to Binding expression"
 
-func :: [String] -> [AST] -> AST -> EvalM AST
-func binders args expr = do
+func :: NonEmpty String -> [AST] -> AST -> EvalM AST
+func (toList -> binders) args expr = do
   evalArgs <- traverse eval' args
   let newBindings = M.fromList $ zip binders evalArgs
   local (newBindings <>) $ eval' expr
@@ -54,7 +55,9 @@ def args@[binders, expr] = do
   bindStrings <- case binders of
     List binders' -> traverse assertBinders binders'
     _ -> throwError $ "expected list of binders, then expression; got: " ++ show args
-  return $ FuncDef bindStrings expr
+  case bindStrings of
+    (x:xs) -> return $ FuncDef (x:|xs) expr
+    [] -> throwError $ "functions must accept at least one argument"
 def args = throwError $ "expected list of binders, then an expression; got: " ++ show args
 
 if' :: [AST] -> EvalM AST

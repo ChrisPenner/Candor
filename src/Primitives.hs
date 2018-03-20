@@ -4,8 +4,7 @@ module Primitives where
 import AST
 
 import RIO
-import Data.Bifunctor as Bi
-import TypeInference
+import Types
 import qualified Data.Map as M
 
 primitives :: Bindings

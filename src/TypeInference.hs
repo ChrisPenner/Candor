@@ -6,19 +6,19 @@
 {-# language ViewPatterns #-}
 module TypeInference where
 
-import AST
-import GHC.Exts
+import GHC.Exts (IsList(..))
 
 import RIO
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.List as L
-import Data.Foldable
+import Data.List.NonEmpty as NE (NonEmpty(..), toList)
 import Control.Monad.State
 import Control.Monad.Except
-import qualified Data.Bifunctor as Bi
 
-type FreeTypes = S.Set String
+import AST
+import Types
+
 type InferM a = ExceptT InferenceError (State [String]) a
 
 newtype Env = Env (M.Map String Polytype)
@@ -63,12 +63,6 @@ instance Show InferenceError where
   show (OccursCheckFailed name ty) =
     "Occurs check failed: " <> show name <> " already appears in " <> show ty
   show (UnknownIdentifier name) = "Unknown identifier: " <> show name
-
-data Polytype = Forall FreeTypes Monotype
-
-instance Show Polytype where
-  show (Forall quantifieds m) =
-    "∀ " <> (L.intercalate " " $ S.toList quantifieds) <> ". " <> show m
 
 class HasFreeTypes t where
   getFree :: t -> FreeTypes
@@ -172,20 +166,21 @@ applType (TFunc accept returnType) arg = do
   return (subs, sub subs returnType)
 
 
-inferFunc :: Env -> [String] -> AST -> InferM (Substitutions, Monotype)
+inferFunc :: Env -> NonEmpty String -> AST -> InferM (Substitutions, Monotype)
 inferFunc env args expr = do
-  let argSet = S.fromList args
-      env' = Env $ M.fromSet (Forall mempty . TVar) argSet
+  let env' = Env . M.fromList . fmap toKeyVal . NE.toList $ args
   (subs, returnType) <- infer (env  <> env') expr
   let argTypes = sub subs . TVar <$> args
   return (subs, nestFuncs argTypes (sub subs returnType))
+    where
+      toKeyVal name = (name, Forall mempty (TVar name))
 
-nestFuncs :: [Monotype] -> Monotype -> Monotype
-nestFuncs (x:[]) returnType = TFunc x returnType
-nestFuncs (x:xs) returnType = TFunc x (nestFuncs xs returnType)
+nestFuncs :: NonEmpty Monotype -> Monotype -> Monotype
+nestFuncs (x:|[]) returnType = TFunc x returnType
+nestFuncs (x:|(y:ys)) returnType = TFunc x (nestFuncs (y:|ys) returnType)
 
 inferList :: Env -> [AST] -> InferM (Substitutions, Monotype)
-inferList env [] = do
+inferList _ [] = do
   fresh <- freshName
   return (mempty, TList (TVar fresh))
 inferList env xs = do

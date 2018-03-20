@@ -7,6 +7,7 @@ import Test.Hspec
 import AST
 import TypeInference
 import Primitives
+import Types
 
 spec :: Spec
 spec = do
