@@ -31,6 +31,7 @@ newtype Env = Env (M.Map String Polytype)
 instance IsList Env where
   type Item Env = (String, Polytype)
   fromList = Env . M.fromList
+  toList (Env e) = M.toList e
 
 newtype Substitutions = Substitutions (M.Map String Monotype)
   deriving (Show, Eq)
@@ -46,7 +47,7 @@ instance Monoid Substitutions where
 instance IsList Substitutions where
   type Item Substitutions = (String, Monotype)
   fromList = Substitutions . M.fromList
-
+  toList (Substitutions s) = M.toList s
 
 
 freshName :: InferM String
@@ -134,7 +135,7 @@ instance Unifyable Monotype Monotype where
 
 bindVar :: String -> Monotype -> InferM Substitutions
 bindVar name (TVar t) | name == t = pure mempty
-bindVar name t | name `S.member` getFree t = 
+bindVar name t | name `S.member` getFree t =
   throwError $ OccursCheckFailed name t -- Can't bind a type var to a definition containing the same type var: infinite recursion
 bindVar name t = return $ Substitutions [(name, t)]
 
@@ -147,7 +148,7 @@ infer env ast =
     Str{} -> return (mempty, stringT)
     Number{} -> return (mempty, intT)
     Boolean{} -> return (mempty, boolT)
-    Symbol name -> inferSymbol env name 
+    Symbol name -> inferSymbol env name
     Builtin name -> inferSymbol env name
     Binder{} -> return (mempty, binderT)
     FuncDef args expr -> inferFunc env args expr
@@ -158,8 +159,8 @@ infer env ast =
 
 inferAppl :: Env -> AST -> [AST] -> InferM (Substitutions, Monotype)
 inferAppl env f args = do
-  (subs, fType) <- infer env f
-  (subs', argTypes) <- unzip <$> traverse (infer env) args
+  (_, fType) <- infer env f
+  (_, argTypes) <- unzip <$> traverse (infer env) args
   foldM go (mempty, fType) argTypes
     where
       go (subs, fType) next = applType fType (sub subs next)
@@ -201,7 +202,7 @@ inferSymbol env name = do
   return (mempty, boundMonotype)
 
 lookupSymbol :: Env -> String -> InferM Polytype
-lookupSymbol (Env env) name = 
+lookupSymbol (Env env) name =
   case M.lookup name env of
     Just x  -> return x
     Nothing -> throwError (UnknownIdentifier name)
