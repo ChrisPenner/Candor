@@ -15,7 +15,7 @@ primitiveTypes =
   [ ("+", Forall mempty $ TFunc intT (TFunc intT intT))
   , ("-", Forall mempty $ TFunc intT (TFunc intT intT))
   , ("*", Forall mempty $ TFunc intT (TFunc intT intT))
-  , ("=", Forall mempty $ TFunc binderT (TFunc varT bindingsT))
+  , ("=", Forall ["val"] $ TFunc binderT (TFunc (TVar "val") bindingsT))
   , ("def", Forall mempty $ TFunc (TList binderT) varT)
   , ("merge", Forall mempty $ TFunc (TList bindingsT) bindingsT)
   , ("++", Forall mempty $ TFunc stringT (TFunc stringT stringT))
