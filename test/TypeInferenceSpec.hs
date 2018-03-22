@@ -44,7 +44,6 @@ spec = do
       runInference (infer mempty (Str "string")) `shouldBe` Right (mempty, stringT)
       runInference (infer mempty (Number 1)) `shouldBe` Right (mempty, intT)
       runInference (infer mempty (Boolean False)) `shouldBe` Right (mempty, boolT)
-      runInference (infer mempty (Binder "var")) `shouldBe` Right (mempty, binderT)
       runInference (infer mempty (Bindings mempty)) `shouldBe` Right (mempty, bindingsT)
     it "Builtins" $ do
       runInference (infer (Env primitiveTypes) (Builtin "++")) `shouldBe` Right (mempty, TFunc stringT (TFunc stringT stringT))

@@ -53,7 +53,7 @@ builtin name = notFound name
 def :: [AST] -> EvalM AST
 def args@[binders, expr] = do
   bindStrings <- case binders of
-    List binders' -> traverse assertBinders binders'
+    List binders' -> traverse assertSymbols binders'
     _ -> throwError $ "expected list of binders, then expression; got: " ++ show args
   case bindStrings of
     (x:xs) -> return $ FuncDef (x:|xs) expr
@@ -70,7 +70,7 @@ if' [p, x, y] = do
 if' args = throwError $ "Expected a Boolean, then two expressions; got:" ++ show args
 
 eq' :: [AST] -> EvalM AST
-eq' [Binder name, expr] = do
+eq' [Symbol name, expr] = do
   res <- eval' expr
   return $ Bindings (M.singleton name res)
 eq' args = throwError $ "Expected binder and expression argument to = but got:" ++ show args
@@ -115,6 +115,6 @@ assertBindings b = throwError $ "expected bindings; found: " ++ show b
 notFound :: String -> [AST] -> EvalM AST
 notFound name args = throwError $ "no symbol in scope for " ++ name ++ ": " ++ show args
 
-assertBinders :: AST -> EvalM String
-assertBinders (Binder name) = return name
-assertBinders b = throwError $ "expected binding symbol; found: " ++ show b
+assertSymbols :: AST -> EvalM String
+assertSymbols (Symbol name) = return name
+assertSymbols b = throwError $ "expected binding symbol; found: " ++ show b

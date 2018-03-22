@@ -150,7 +150,6 @@ infer env ast =
     Boolean{} -> return (mempty, boolT)
     Symbol name -> inferSymbol env name
     Builtin name -> inferSymbol env name
-    Binder{} -> return (mempty, binderT)
     FuncDef args expr -> inferFunc env args expr
     List l -> inferList env l
     Bindings{} -> return (mempty, bindingsT)

@@ -9,7 +9,6 @@ data AST =
   | Number Int
   | Boolean Bool
   | Symbol String
-  | Binder String
   | FuncDef (NonEmpty String) AST
   | List [AST]
   | Builtin String

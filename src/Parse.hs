@@ -16,12 +16,7 @@ symbol :: String -> Parser String
 symbol = L.symbol space
 
 expression :: Parser AST
-expression = appl <|> stringLiteral <|> try numberLiteral <|> binderLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral
-
-binderLiteral :: Parser AST
-binderLiteral = do
-  _ <- char ':'
-  Binder <$> symbolLexeme
+expression = appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral
 
 boolLiteral :: Parser AST
 boolLiteral = do

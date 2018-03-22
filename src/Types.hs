@@ -7,7 +7,7 @@ import Data.List as L
 data TypeConst = IntT | StringT | BoolT | BinderT | BindingsT
   deriving (Show, Eq)
 
-intT, stringT, boolT, binderT, bindingsT :: Monotype
+intT, stringT, boolT, binderT, bindingsT, varT :: Monotype
 intT = TConst IntT
 stringT = TConst StringT
 boolT = TConst BoolT
@@ -29,6 +29,7 @@ instance Show Monotype where
   show (TList m) = "[" <> show m <> "]"
 
 type FreeTypes = S.Set String
+
 data Polytype = Forall FreeTypes Monotype
 
 instance Show Polytype where
