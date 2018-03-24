@@ -17,14 +17,14 @@ Usage:
 (++ "hello, " "world!")
 ;; hello, world!
 
-;; You can define lambdas using the `def` keyword
-((def [num] (* num num)) 5)
+;; You can define lambdas using `{[args] expr}` syntax
+({[num] (* num num)} 5)
 ;; 25
 
 ;; `=` creates a binding between a symbol and an expression.
 ;; You then call the binding as though it's a function to bring its bindings into scope:
 (
-    (= square (def [num] (* num num))) 
+    (= square {[num] (* num num)}) 
     (square 5)
 )
 ;; 25
@@ -33,7 +33,7 @@ Usage:
 (
     (merge [ (= x 10)
              (= y 42)
-             (= square (def [num] (* num num)))])
+             (= square {[num] (* num num) })])
     (+ (square x) y)
     )
 )
@@ -45,10 +45,10 @@ Here's a recursive factorial function:
 ```lisp
 (
   (= fact 
-    (def [num] 
+    {[num] 
       (if (== num 0) 
         1 
-        (* num (fact (- num 1)))))
+        (* num (fact (- num 1))))}
   ) 
   (fact 0)
 )

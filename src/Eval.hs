@@ -46,19 +46,8 @@ builtin "++" = stringBinOp (++)
 builtin "=" = eq'
 builtin "=="  = eqBool
 builtin "merge" = merge
-builtin "def" = def
 builtin "if" = if'
 builtin name = notFound name
-
-def :: [AST] -> EvalM AST
-def args@[binders, expr] = do
-  bindStrings <- case binders of
-    List binders' -> traverse assertSymbols binders'
-    _ -> throwError $ "expected list of binders, then expression; got: " ++ show args
-  case bindStrings of
-    (x:xs) -> return $ FuncDef (x:|xs) expr
-    [] -> throwError $ "functions must accept at least one argument"
-def args = throwError $ "expected list of binders, then an expression; got: " ++ show args
 
 if' :: [AST] -> EvalM AST
 if' [p, x, y] = do

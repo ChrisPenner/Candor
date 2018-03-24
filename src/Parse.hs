@@ -7,6 +7,8 @@ import qualified Text.Megaparsec as MP
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
+import Data.List.NonEmpty as NE (NonEmpty, fromList)
+
 import AST
 import Data.Bifunctor
 
@@ -16,7 +18,7 @@ symbol :: String -> Parser String
 symbol = L.symbol space
 
 expression :: Parser AST
-expression = appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral
+expression = appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral <|> funcLiteral
 
 boolLiteral :: Parser AST
 boolLiteral = do
@@ -45,6 +47,17 @@ symbolLiteral = Symbol <$> symbolLexeme
 
 listLiteral :: Parser AST
 listLiteral = List <$> list
+
+funcLiteral :: Parser AST
+funcLiteral = 
+  between (symbol "{") (symbol "}") $ do
+    args <- argList
+    expr <- expression
+    return (FuncDef args expr)
+  where
+    argList :: Parser (NonEmpty String)
+    argList = NE.fromList <$>
+      between (symbol "[") (symbol "]") (symbolLexeme `sepBy1` space)
 
 appl :: Parser AST
 appl = between (symbol "(") (symbol ")") 
