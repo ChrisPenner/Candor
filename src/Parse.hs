@@ -29,7 +29,7 @@ boolLiteral = do
     _ -> empty
 
 stringLiteral :: Parser AST
-stringLiteral = Str <$> (char '"' *> manyTill L.charLiteral (char '"'))
+stringLiteral = Str <$> L.lexeme space (char '"' *> manyTill L.charLiteral (char '"'))
 
 numberLiteral :: Parser AST
 numberLiteral = Number <$> do

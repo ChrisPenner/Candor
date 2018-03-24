@@ -8,6 +8,17 @@ import AST
 import TypeInference
 import Primitives
 import Types
+import Parse
+
+testInference :: String -> Either InferenceError (Substitutions, Monotype)
+testInference str =
+  runInference (infer (Env primitiveTypes) (forceParse str))
+
+forceParse :: String -> AST
+forceParse str =
+  case parse str of
+    Left err -> error $ "failed to parse in test: " ++ str ++ "\n" ++ err
+    Right ast' -> ast'
 
 spec :: Spec
 spec = do
@@ -41,39 +52,36 @@ spec = do
 
   describe "infer" $ do
     it "basic AST types" $ do
-      runInference (infer mempty (Str "string")) `shouldBe` Right (mempty, stringT)
-      runInference (infer mempty (Number 1)) `shouldBe` Right (mempty, intT)
-      runInference (infer mempty (Boolean False)) `shouldBe` Right (mempty, boolT)
+      testInference "\"str\"" `shouldBe` Right (mempty, stringT)
+      testInference "1" `shouldBe` Right (mempty, intT)
+      testInference "F" `shouldBe` Right (mempty, boolT)
       runInference (infer mempty (Bindings mempty)) `shouldBe` Right (mempty, bindingsT)
+      -- testInference "(= a 1)" `shouldBe` Right (mempty, bindingsT)
     it "Builtins" $ do
-      runInference (infer (Env primitiveTypes) (Builtin "++")) `shouldBe` Right (mempty, TFunc stringT (TFunc stringT stringT))
+      testInference "++" `shouldBe` Right (mempty, TFunc stringT (TFunc stringT stringT))
     describe "Lists" $ do
       it "infers type of homogenous lists" $ do
-        runInference (infer mempty (List [Str "a", Str "b"])) `shouldBe` Right (mempty, TList stringT)
+        testInference "[ 1 2 ]" `shouldBe` Right (mempty, TList intT)
       it "infers unused type var for empty lists" $ do
-        runInference (infer mempty (List [])) `shouldBe` Right (mempty, TList (TVar "a"))
+        testInference "[]" `shouldBe` Right (mempty, TList (TVar "a"))
         let res = runInference $ do
               a <- infer mempty (List [])
               b <- infer mempty (List [])
               return (a, b)
         res `shouldBe` Right ((mempty, (TList (TVar "a"))), (mempty, TList (TVar "b")))
       it "errors on heterogenous lists" $ do
-        runInference (infer mempty (List [Str "a", Number 1])) `shouldBe` Left (CannotUnify stringT intT)
+        testInference "[\"a\" 1]" `shouldBe` Left (CannotUnify stringT intT)
     describe "Symbols" $ do
       it "infers type of symbols from env" $ do
-        runInference (infer [("a", Forall mempty intT)] (Symbol "a")) `shouldBe` Right (mempty, intT)
+        testInference "+" `shouldBe` Right (mempty, (TFunc intT (TFunc intT intT)))
     describe "FuncDefs" $ do
       it "infers type of functions" $ do
-        runInference (infer mempty (FuncDef ["a"] (Symbol "a"))) `shouldBe` Right (mempty, TFunc (TVar "a") (TVar "a"))
-        runInference (infer mempty (FuncDef ["a"] (Number 1))) `shouldBe` Right (mempty, TFunc (TVar "a") intT)
-        runInference (infer mempty (FuncDef ["a"] (List [Number 1, Symbol "a"]))) `shouldBe` Right ([("a", intT)], TFunc intT (TList intT))
-        runInference (infer mempty (FuncDef ["a", "b"] (List [Symbol "a", Symbol "b"]))) `shouldBe` Right ([("a", TVar "b")], TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b"))))
+        testInference "{[a b] (+ a b)}" `shouldBe` Right (mempty, (TFunc intT (TFunc intT intT)))
+        testInference "{[a] a}" `shouldBe` Right (mempty, (TFunc (TVar "a") (TVar "a")))
+        testInference "{[a] 1}" `shouldBe` Right (mempty, (TFunc (TVar "a") intT))
+        testInference "{[a] [1, a]}" `shouldBe` Right ([("a", intT)], (TFunc intT (TList intT)))
+        testInference "{[a b] [a, b]}" `shouldBe` Right ([("a", TVar "b")], (TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b")))))
     describe "Appl" $ do
       it "infers proper return type" $ do
-        runInference (infer (Env primitiveTypes) (Appl (FuncDef ["a"] (Symbol "a")) [Number 1])) `shouldBe` Right ([("a", intT)], intT)
-        runInference (infer (Env primitiveTypes)
-          (Appl
-            (FuncDef ["a", "b"]
-              (Appl (Builtin  "+")
-                [Symbol "a", Symbol "b"]))
-            [Number 1, Number 2])) `shouldBe` Right (mempty, intT)
+        testInference "({[a] a} 1)" `shouldBe` Right ([("a", intT)], intT)
+        testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right (mempty, intT)
