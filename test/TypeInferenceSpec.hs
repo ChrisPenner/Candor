@@ -22,6 +22,13 @@ forceParse str =
 
 spec :: Spec
 spec = do
+  describe "inferAppl" $ do
+    it "returns proper application type vars" $ do
+      runInference (inferAppl (Env (primitiveTypes <> [("a", Forall mempty $ TVar "a"), ("b", Forall mempty $ TVar "b")])) (Builtin "+") [Symbol "a", Symbol "b"]) `shouldBe` Right ([("a", intT), ("b", intT)], intT)
+
+  describe "substitutions" $ do
+    it "returns expected substitutions over env vars" $ do
+      runInference (infer (Env (primitiveTypes <> [("a", Forall mempty $ TVar "a"), ("b", Forall mempty $ TVar "b")])) (forceParse "(+ a b)")) `shouldBe` Right ([("a", intT), ("b", intT)], intT)
   describe "unify" $ do
     describe "unifies monotypes" $ do
       it "unifies TConsts as expected" $ do
@@ -56,7 +63,7 @@ spec = do
       testInference "1" `shouldBe` Right (mempty, intT)
       testInference "F" `shouldBe` Right (mempty, boolT)
       runInference (infer mempty (Bindings mempty)) `shouldBe` Right (mempty, bindingsT)
-      -- testInference "(= a 1)" `shouldBe` Right (mempty, bindingsT)
+      testInference "(= a 1)" `shouldBe` Right (mempty, bindingsT)
     it "Builtins" $ do
       testInference "++" `shouldBe` Right (mempty, TFunc stringT (TFunc stringT stringT))
     describe "Lists" $ do
@@ -76,12 +83,12 @@ spec = do
         testInference "+" `shouldBe` Right (mempty, (TFunc intT (TFunc intT intT)))
     describe "FuncDefs" $ do
       it "infers type of functions" $ do
-        testInference "{[a b] (+ a b)}" `shouldBe` Right (mempty, (TFunc intT (TFunc intT intT)))
+        testInference "{[a b] (+ a b)}" `shouldBe` Right ([("a", intT), ("b", intT)], (TFunc intT (TFunc intT intT)))
         testInference "{[a] a}" `shouldBe` Right (mempty, (TFunc (TVar "a") (TVar "a")))
         testInference "{[a] 1}" `shouldBe` Right (mempty, (TFunc (TVar "a") intT))
-        testInference "{[a] [1, a]}" `shouldBe` Right ([("a", intT)], (TFunc intT (TList intT)))
-        testInference "{[a b] [a, b]}" `shouldBe` Right ([("a", TVar "b")], (TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b")))))
+        testInference "{[a] [1 a]}" `shouldBe` Right ([("a", intT)], (TFunc intT (TList intT)))
+        testInference "{[a b] [a b]}" `shouldBe` Right ([("a", TVar "b")], (TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b")))))
     describe "Appl" $ do
       it "infers proper return type" $ do
         testInference "({[a] a} 1)" `shouldBe` Right ([("a", intT)], intT)
-        testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right (mempty, intT)
+        testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right ([("a", intT), ("b", intT)], intT)

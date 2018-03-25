@@ -158,11 +158,14 @@ infer env ast =
 
 inferAppl :: Env -> AST -> [AST] -> InferM (Substitutions, Monotype)
 inferAppl env f args = do
-  (_, fType) <- infer env f
-  (_, argTypes) <- unzip <$> traverse (infer env) args
-  foldM go (mempty, fType) argTypes
+  (subsA, fType) <- infer env f
+  (subsB, argTypes) <- unzip <$> traverse (infer env) args
+  (subsC, resultT) <- foldM go (mempty, fType) argTypes
+  return (subsA <> fold subsB <> subsC, resultT)
     where
-      go (subs, fType) next = applType fType (sub subs next)
+      go (subs, fType) next = do
+        (newSubs, t) <- applType fType (sub subs next)
+        return (subs <> newSubs, t)
 
 applType :: Monotype -> Monotype -> InferM (Substitutions, Monotype)
 applType (TFunc accept returnType) arg = do
