@@ -43,7 +43,6 @@ builtin "+" = numBinOp (+)
 builtin "-" = numBinOp (-)
 builtin "*" = numBinOp (*)
 builtin "++" = stringBinOp (++)
-builtin "=" = eq'
 builtin "=="  = eqBool
 builtin "merge" = merge
 builtin "if" = if'
@@ -57,12 +56,6 @@ if' [p, x, y] = do
     Boolean False -> eval' y
     _ -> throwError $ "Expected a Boolean predicate, got: " ++ show res
 if' args = throwError $ "Expected a Boolean, then two expressions; got:" ++ show args
-
-eq' :: [AST] -> EvalM AST
-eq' [Symbol name, expr] = do
-  res <- eval' expr
-  return $ Bindings (M.singleton name res)
-eq' args = throwError $ "Expected binder and expression argument to = but got:" ++ show args
 
 numBinOp :: (Int -> Int -> Int) -> [AST] -> EvalM AST
 numBinOp f [x, y] = do

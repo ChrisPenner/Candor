@@ -1,4 +1,4 @@
-((merge 
+((merge
   [(= times_two {[num] (* num 2)})
    (= inc {[num] (+ 1 num)})
   ]) 

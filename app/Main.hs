@@ -7,6 +7,7 @@ import System.Environment
 import System.IO
 import Parse
 import Eval
+import AST
 
 newtype ParseError = ParseError String
 instance Show ParseError where
@@ -33,4 +34,4 @@ main = flip catchAny print $ do
 
   ast <- either (throwIO . ParseError) return (parse file)
   result <- either (throwIO . EvalError) return (eval ast)
-  print result
+  putStrLn . pretty $ result

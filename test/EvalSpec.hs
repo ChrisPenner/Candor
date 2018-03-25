@@ -12,7 +12,7 @@ expectedRecursion :: AST
 expectedRecursion = Appl (Bindings [("func", (FuncDef ["cond"] (Appl (Symbol "if") [Symbol "cond", Number 5, (Appl (Symbol "func") [Boolean False])])))]) [Appl (Symbol "func") [Boolean True]]
 
 recursiveFactorial :: AST
-recursiveFactorial = Appl (Appl (Symbol "=") [Symbol "fact", (FuncDef ["num"] (Appl (Symbol "if") [Appl (Symbol "==") [Symbol "num", Number 0], Number 1, (Appl (Symbol "*") [Appl (Symbol "fact") [Appl (Symbol "-") [Symbol "num", Number 1]], Symbol "num"])]))]) [Appl (Symbol "fact") [Number 1]]
+recursiveFactorial = Appl (Bindings [("fact", (FuncDef ["num"] (Appl (Symbol "if") [Appl (Symbol "==") [Symbol "num", Number 0], Number 1, (Appl (Symbol "*") [Appl (Symbol "fact") [Appl (Symbol "-") [Symbol "num", Number 1]], Symbol "num"])])))]) [Appl (Symbol "fact") [Number 1]]
 
 spec :: Spec
 spec = do
