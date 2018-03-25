@@ -3,6 +3,7 @@ module Types where
 import RIO
 import Data.Set as S
 import Data.List as L
+import AST
 
 data TypeConst = IntT | StringT | BoolT | BinderT | BindingsT
   deriving (Show, Eq)
@@ -28,9 +29,6 @@ data Monotype =
     | TFunc Monotype Monotype
     | TList Monotype -- List of types
     deriving (Show, Eq)
-
-class Pretty a where
-  pretty :: a -> String
 
 instance Pretty Monotype where
   pretty (TVar s) = s
