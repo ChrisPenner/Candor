@@ -71,6 +71,7 @@ spec = do
         testInference "[ 1 2 ]" `shouldBe` Right (mempty, TList intT)
       it "infers unused type var for empty lists" $ do
         testInference "[]" `shouldBe` Right (mempty, TList (TVar "a"))
+        testInference "({[a] a} [])" `shouldBe` Right (mempty, TList (TVar "a"))
         let res = runInference $ do
               a <- infer mempty (List [])
               b <- infer mempty (List [])

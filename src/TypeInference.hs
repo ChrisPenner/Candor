@@ -4,6 +4,7 @@
 {-# language TypeFamilies #-}
 {-# language GeneralizedNewtypeDeriving #-}
 {-# language ViewPatterns #-}
+{-# language TupleSections #-}
 module TypeInference where
 
 import GHC.Exts (IsList(..))
@@ -61,7 +62,7 @@ data InferenceError =
       CannotUnify Monotype Monotype
     | OccursCheckFailed String Monotype
     | UnknownIdentifier String
-    deriving (Eq)
+    deriving (Show, Eq)
 
 instance Pretty InferenceError where
   pretty (CannotUnify t1 t2) = "Cannot unify " <> pretty t1 <> " with " <> pretty t2
@@ -89,6 +90,11 @@ instance HasFreeTypes Env where
 
 class Sub t where
   sub :: Substitutions -> t -> t
+  freshenAll :: HasFreeTypes t => t -> InferM (Substitutions, t)
+  freshenAll t = do
+    freshMap <- sequenceA . M.fromSet (const freshName) $ getFree t
+    let subs = (Substitutions (TVar <$> freshMap))
+    return $ (subs, sub subs t)
 
 instance Sub Substitutions where
   sub s (Substitutions target) = Substitutions (fmap (sub s) target)
@@ -148,8 +154,8 @@ infer env ast =
     Str{} -> return (mempty, stringT)
     Number{} -> return (mempty, intT)
     Boolean{} -> return (mempty, boolT)
-    Symbol name -> inferSymbol env name
-    Builtin name -> inferSymbol env name
+    Symbol name -> (mempty,) <$> inferSymbol env name
+    Builtin name -> (mempty,) <$> inferSymbol env name
     FuncDef args expr -> inferFunc env args expr
     List l -> inferList env l
     Bindings{} -> return (mempty, bindingsT)
@@ -197,11 +203,11 @@ inferList env xs = do
   return (fold (subs <> subs'), TList t)
 
 
-inferSymbol :: Env -> String -> InferM (Substitutions, Monotype)
+inferSymbol :: Env -> String -> InferM Monotype
 inferSymbol env name = do
   symbolType <- lookupSymbol env name
   boundMonotype <- freshNameAll symbolType
-  return (mempty, boundMonotype)
+  return boundMonotype
 
 lookupSymbol :: Env -> String -> InferM Polytype
 lookupSymbol (Env env) name =
