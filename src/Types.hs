@@ -7,6 +7,13 @@ import Data.List as L
 data TypeConst = IntT | StringT | BoolT | BinderT | BindingsT
   deriving (Show, Eq)
 
+instance Pretty TypeConst where
+  pretty IntT = "Int"
+  pretty StringT = "String"
+  pretty BoolT = "Bool"
+  pretty BinderT = "Binder"
+  pretty BindingsT = "Bindings"
+
 intT, stringT, boolT, binderT, bindingsT, varT :: Monotype
 intT = TConst IntT
 stringT = TConst StringT
@@ -20,19 +27,23 @@ data Monotype =
     | TConst TypeConst  -- Things like Int, (), etc
     | TFunc Monotype Monotype
     | TList Monotype -- List of types
-    deriving Eq
+    deriving (Show, Eq)
 
-instance Show Monotype where
-  show (TVar s) = s
-  show (TConst s) = show s
-  show (TFunc a b) = "(" <> show a <> " -> " <> show b <> ")"
-  show (TList m) = "[" <> show m <> "]"
+class Pretty a where
+  pretty :: a -> String
+
+instance Pretty Monotype where
+  pretty (TVar s) = s
+  pretty (TConst s) = pretty s
+  pretty (TFunc a b) = "(" <> pretty a <> " -> " <> pretty b <> ")"
+  pretty (TList m) = "[" <> pretty m <> "]"
 
 type FreeTypes = S.Set String
 
 data Polytype = Forall FreeTypes Monotype
+  deriving Show
 
-instance Show Polytype where
-  show (Forall quantifieds m) =
-    "∀ " <> (L.intercalate " " $ S.toList quantifieds) <> ". " <> show m
+instance Pretty Polytype where
+  pretty (Forall quantifieds m) =
+    "∀ " <> (L.intercalate " " $ S.toList quantifieds) <> ". " <> pretty m
 

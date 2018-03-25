@@ -8,12 +8,15 @@ import TypeInference
 import System.IO (print)
 import Data.Text.IO as TIO
 import Data.Text
-import Data.Bifunctor as Bi (first)
+import Types
 
 repl :: IO ()
 repl = do
   ln <- strip <$> TIO.getLine
   case stripPrefix ":t" ln of
-    Just (strip -> rest) -> print (parse (unpack rest) >>= Bi.first show . inferType)
+    Just (strip -> rest) -> putStrLn . pack $
+      case parse (unpack rest) of
+        Right ast -> either show pretty $ inferType ast
+        Left err -> show err
     Nothing -> print (parse (unpack ln) >>= eval)
   repl
