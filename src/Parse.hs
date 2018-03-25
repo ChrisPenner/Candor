@@ -1,3 +1,4 @@
+{-# language OverloadedLists #-}
 module Parse where
 
 import RIO hiding (try, some, first, many)
@@ -18,7 +19,7 @@ symbol :: String -> Parser String
 symbol = L.symbol space
 
 expression :: Parser AST
-expression = appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral <|> funcLiteral
+expression = try binding <|> appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|> symbolLiteral <|> listLiteral <|> funcLiteral
 
 boolLiteral :: Parser AST
 boolLiteral = do
@@ -47,6 +48,14 @@ symbolLiteral = Symbol <$> symbolLexeme
 
 listLiteral :: Parser AST
 listLiteral = List <$> list
+
+binding :: Parser AST
+binding = do
+  between (symbol "(") (symbol ")") $ do
+    _ <- L.lexeme space (char '=')
+    bindingName <- symbolLexeme
+    expr <- expression
+    return (Bindings [(bindingName, expr)])
 
 funcLiteral :: Parser AST
 funcLiteral = 

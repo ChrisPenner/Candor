@@ -9,7 +9,7 @@ import Eval
 import AST
 
 expectedRecursion :: AST
-expectedRecursion = Appl (Appl (Symbol "=") [Symbol "func", (FuncDef ["cond"] (Appl (Symbol "if") [Symbol "cond", Number 5, (Appl (Symbol "func") [Boolean False])]))]) [Appl (Symbol "func") [Boolean True]]
+expectedRecursion = Appl (Bindings [("func", (FuncDef ["cond"] (Appl (Symbol "if") [Symbol "cond", Number 5, (Appl (Symbol "func") [Boolean False])])))]) [Appl (Symbol "func") [Boolean True]]
 
 recursiveFactorial :: AST
 recursiveFactorial = Appl (Appl (Symbol "=") [Symbol "fact", (FuncDef ["num"] (Appl (Symbol "if") [Appl (Symbol "==") [Symbol "num", Number 0], Number 1, (Appl (Symbol "*") [Appl (Symbol "fact") [Appl (Symbol "-") [Symbol "num", Number 1]], Symbol "num"])]))]) [Appl (Symbol "fact") [Number 1]]
