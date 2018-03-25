@@ -22,9 +22,9 @@ import AST
 import Types
 
 inferType :: AST -> Either InferenceError Monotype
-inferType = fmap snd . runInference . infer (Env primitiveTypes)
+inferType = fmap snd . runInference (Env primitiveTypes) . infer
 
-type InferM a = ExceptT InferenceError (State [String]) a
+type InferM a = ExceptT InferenceError (ReaderT Env (State [String])) a
 
 newtype Env = Env (M.Map String Polytype)
   deriving (Show, Monoid)
@@ -122,8 +122,8 @@ infNames = ((:[]) <$> ['a'..'z']) ++ do
   a <- ['a'..'z']
   return (a : show n)
 
-runInference :: InferM a -> Either InferenceError a
-runInference = flip evalState infNames . runExceptT
+runInference :: Env -> InferM a -> Either InferenceError a
+runInference env = flip evalState infNames . flip runReaderT env . runExceptT
 
 class Unifyable a b where
   unify :: a -> b -> InferM Substitutions
@@ -148,24 +148,24 @@ bindVar name t = return $ Substitutions [(name, t)]
 extendEnv :: Env -> String -> Polytype -> Env
 extendEnv (Env m) name t = Env $ M.insert name t m
 
-infer :: Env -> AST -> InferM (Substitutions, Monotype)
-infer env ast =
+infer :: AST -> InferM (Substitutions, Monotype)
+infer ast =
   case ast of
     Str{} -> return (mempty, stringT)
     Number{} -> return (mempty, intT)
     Boolean{} -> return (mempty, boolT)
-    Symbol name -> (mempty,) <$> inferSymbol env name
-    Builtin name -> (mempty,) <$> inferSymbol env name
-    FuncDef args expr -> inferFunc env args expr
-    List l -> inferList env l
+    Symbol name -> (mempty,) <$> inferSymbol name
+    Builtin name -> (mempty,) <$> inferSymbol name
+    FuncDef args expr -> inferFunc args expr
+    List l -> inferList l
     Bindings{} -> return (mempty, bindingsT)
     Appl f args -> do
-      inferAppl env f args
+      inferAppl f args
 
-inferAppl :: Env -> AST -> [AST] -> InferM (Substitutions, Monotype)
-inferAppl env f args = do
-  (subsA, fType) <- infer env f
-  (subsB, argTypes) <- unzip <$> traverse (infer env) args
+inferAppl :: AST -> [AST] -> InferM (Substitutions, Monotype)
+inferAppl f args = do
+  (subsA, fType) <- infer f
+  (subsB, argTypes) <- unzip <$> traverse infer args
   (subsC, resultT) <- foldM go (mempty, fType) argTypes
   return (subsA <> fold subsB <> subsC, resultT)
     where
@@ -180,10 +180,10 @@ applType (TFunc accept returnType) arg = do
 applType ast _ = error $ "expected TFunc but got: " ++ show ast
 
 
-inferFunc :: Env -> NonEmpty String -> AST -> InferM (Substitutions, Monotype)
-inferFunc env args expr = do
+inferFunc :: NonEmpty String -> AST -> InferM (Substitutions, Monotype)
+inferFunc args expr = do
   let env' = Env . M.fromList . fmap toKeyVal . NE.toList $ args
-  (subs, returnType) <- infer (env  <> env') expr
+  (subs, returnType) <- local (<> env') $ infer expr
   let argTypes = sub subs . TVar <$> args
   return (subs, nestFuncs argTypes (sub subs returnType))
     where
@@ -193,24 +193,25 @@ nestFuncs :: NonEmpty Monotype -> Monotype -> Monotype
 nestFuncs (x:|[]) returnType = TFunc x returnType
 nestFuncs (x:|(y:ys)) returnType = TFunc x (nestFuncs (y:|ys) returnType)
 
-inferList :: Env -> [AST] -> InferM (Substitutions, Monotype)
-inferList _ [] = do
+inferList :: [AST] -> InferM (Substitutions, Monotype)
+inferList [] = do
   fresh <- freshName
   return (mempty, TList (TVar fresh))
-inferList env xs = do
-  (subs, (t:ts)) <- unzip <$> traverse (infer env) xs
+inferList xs = do
+  (subs, (t:ts)) <- unzip <$> traverse infer xs
   subs' <- sequenceA $ zipWith unify (t:ts) ts
   return (fold (subs <> subs'), TList t)
 
 
-inferSymbol :: Env -> String -> InferM Monotype
-inferSymbol env name = do
-  symbolType <- lookupSymbol env name
+inferSymbol :: String -> InferM Monotype
+inferSymbol name = do
+  symbolType <- lookupSymbol name
   boundMonotype <- freshNameAll symbolType
   return boundMonotype
 
-lookupSymbol :: Env -> String -> InferM Polytype
-lookupSymbol (Env env) name =
+lookupSymbol :: String -> InferM Polytype
+lookupSymbol name = do
+  Env env <- ask
   case M.lookup name env of
     Just x  -> return x
     Nothing -> throwError (UnknownIdentifier name)
