@@ -26,6 +26,6 @@ evalString ln =
   case stripPrefix ":t" (pack ln) of
     Just (strip -> rest) ->
       case parse (unpack rest) of
-        Right ast -> either show pretty $ inferType ast
+        Right ast -> either pretty pretty $ inferType ast
         Left err -> err
     Nothing -> either show pretty (parse ln >>= eval)

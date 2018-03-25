@@ -63,11 +63,11 @@ data InferenceError =
     | UnknownIdentifier String
     deriving (Eq)
 
-instance Show InferenceError where
-  show (CannotUnify t1 t2) = "Cannot unify " <> show t1 <> " with " <> show t2
-  show (OccursCheckFailed name ty) =
-    "Occurs check failed: " <> show name <> " already appears in " <> show ty
-  show (UnknownIdentifier name) = "Unknown identifier: " <> show name
+instance Pretty InferenceError where
+  pretty (CannotUnify t1 t2) = "Cannot unify " <> pretty t1 <> " with " <> pretty t2
+  pretty (OccursCheckFailed name ty) =
+    "Occurs check failed: " <> name <> " already appears in " <> pretty ty
+  pretty (UnknownIdentifier name) = "Unknown identifier: " <> name
 
 class HasFreeTypes t where
   getFree :: t -> FreeTypes
