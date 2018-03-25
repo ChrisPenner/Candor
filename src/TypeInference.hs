@@ -1,3 +1,4 @@
+{-# language TemplateHaskell #-}
 {-# language OverloadedLists #-}
 {-# language InstanceSigs #-}
 {-# language MultiParamTypeClasses #-}
@@ -7,8 +8,6 @@
 {-# language TupleSections #-}
 module TypeInference where
 
-import GHC.Exts (IsList(..))
-
 import RIO
 import qualified Data.Set as S
 import qualified Data.Map as M
@@ -17,104 +16,33 @@ import Data.List.NonEmpty as NE (NonEmpty(..), toList)
 import Control.Monad.State
 import Control.Monad.Except
 import Primitives
+import Control.Lens hiding (List)
 
 import AST
 import Types
+
+data TypeInfo = TypeInfo
+  { _freshNames :: [String]
+  , _subMap :: Substitutions
+  }
+makeLenses ''TypeInfo
+
+freshenAll :: (Sub t, HasFreeTypes t) => t -> InferM (Substitutions, t)
+freshenAll t = do
+  freshMap <- sequenceA . M.fromSet (const freshName) $ getFree t
+  let subs = (Substitutions (TVar <$> freshMap))
+  return $ (subs, sub subs t)
 
 inferType :: AST -> Either InferenceError Monotype
 inferType = fmap snd . runInference (Env primitiveTypes) . infer
 
 type InferM a = ExceptT InferenceError (ReaderT Env (State [String])) a
 
-newtype Env = Env (M.Map String Polytype)
-  deriving (Show, Monoid)
-
-instance IsList Env where
-  type Item Env = (String, Polytype)
-  fromList = Env . M.fromList
-  toList (Env e) = M.toList e
-
-newtype Substitutions = Substitutions (M.Map String Monotype)
-  deriving (Show, Eq)
-
-instance Monoid Substitutions where
-  mappend subst1 subst2 = Substitutions (s1 `M.union` s2)
-    where
-      Substitutions s1 = subst1
-      Substitutions s2 = sub subst1 subst2
-
-  mempty = Substitutions mempty
-
-instance IsList Substitutions where
-  type Item Substitutions = (String, Monotype)
-  fromList = Substitutions . M.fromList
-  toList (Substitutions s) = M.toList s
-
-
 freshName :: InferM String
 freshName = do
   (name:rest) <- get
   put rest
   return name
-
-
-data InferenceError =
-      CannotUnify Monotype Monotype
-    | OccursCheckFailed String Monotype
-    | UnknownIdentifier String
-    deriving (Show, Eq)
-
-instance Pretty InferenceError where
-  pretty (CannotUnify t1 t2) = "Cannot unify " <> pretty t1 <> " with " <> pretty t2
-  pretty (OccursCheckFailed name ty) =
-    "Occurs check failed: " <> name <> " already appears in " <> pretty ty
-  pretty (UnknownIdentifier name) = "Unknown identifier: " <> name
-
-class HasFreeTypes t where
-  getFree :: t -> FreeTypes
-
-instance HasFreeTypes Monotype where
-  getFree :: Monotype -> FreeTypes
-  getFree (TVar s) = S.singleton s
-  getFree (TConst _) = S.empty
-  getFree (TFunc a b) = getFree a <> getFree b
-  getFree (TList t) = getFree t
-
-instance HasFreeTypes Polytype where
-  getFree :: Polytype -> FreeTypes
-  getFree (Forall quantifieds m) = getFree m S.\\ quantifieds
-
-instance HasFreeTypes Env where
-  getFree :: Env -> FreeTypes
-  getFree (Env env) = foldMap getFree env
-
-class Sub t where
-  sub :: Substitutions -> t -> t
-  freshenAll :: HasFreeTypes t => t -> InferM (Substitutions, t)
-  freshenAll t = do
-    freshMap <- sequenceA . M.fromSet (const freshName) $ getFree t
-    let subs = (Substitutions (TVar <$> freshMap))
-    return $ (subs, sub subs t)
-
-instance Sub Substitutions where
-  sub s (Substitutions target) = Substitutions (fmap (sub s) target)
-
-instance Sub Monotype where
-  sub :: Substitutions -> Monotype -> Monotype
-  sub (Substitutions subst) tvar@(TVar t) = M.findWithDefault tvar t subst
-  sub _ t@(TConst _) = t
-  sub subst (TFunc a b) = TFunc (sub subst a) (sub subst b)
-  sub subst (TList a) = TList (sub subst a)
-
-instance Sub Polytype where
-  sub :: Substitutions -> Polytype -> Polytype
-  sub subst@(Substitutions s) (Forall free t) = Forall leftOver (sub subst t)
-    where
-      leftOver = free S.\\ M.keysSet s
-
-instance Sub Env where
-  sub subst (Env env) = Env $ fmap (sub subst) env
-
 
 infNames :: [String]
 infNames = ((:[]) <$> ['a'..'z']) ++ do
@@ -218,8 +146,8 @@ lookupSymbol name = do
 
 freshNameAll :: Polytype -> InferM Monotype
 freshNameAll (Forall qs t) = do
-    mapping <- substituteAllWithFresh qs
-    pure (sub mapping t)
+    freshMapping <- substituteAllWithFresh qs
+    pure (sub freshMapping t)
   where
     -- For each given name, add a substitution from that name to a fresh type
     -- variable to the result.
