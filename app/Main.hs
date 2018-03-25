@@ -8,6 +8,9 @@ import System.IO
 import Parse
 import Eval
 import AST
+import CLI
+import REPL
+import Options.Applicative (execParser)
 
 newtype ParseError = ParseError String
 instance Show ParseError where
@@ -26,12 +29,19 @@ instance Exception EvalError
 instance Exception ArgError
 
 main :: IO ()
-main = flip catchAny print $ do
+main = do
+  Options runRepl <- execParser opts
+  if runRepl 
+     then repl 
+     else compiler
+
+
+compiler :: IO ()
+compiler = flip catchAny print $ do
   args <- getArgs
   file <- case args of
                 [fileName] -> readFile fileName
                 _ -> throwIO $ ArgError "usage: candor <filename>"
-
   ast <- either (throwIO . ParseError) return (parse file)
   result <- either (throwIO . EvalError) return (eval ast)
   putStrLn . pretty $ result
