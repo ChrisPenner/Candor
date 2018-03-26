@@ -64,11 +64,27 @@ instance Unifyable Monotype Monotype where
   unify a (TVar b) = bindVar b a
   unify (TConst a) (TConst b) | a == b = return (TConst a)
   unify (TList a) (TList b) = TList <$> unify a b
+  unify (TBindings env1) (TBindings env2) = unify env1 env2
   unify (TFunc a b) (TFunc a' b') = do
     fType <- unify a a'
     returnType <- (subM (b, b') >>= uncurry unify)
     return (TFunc fType returnType)
   unify a b = throwError (CannotUnify a b)
+
+instance Unifyable Env Env where
+  unify (Env a) (Env b) = do
+    combinedEnvs <- sequenceA $ M.fromSet pairs allKeys
+    return (TBindings (Env combinedEnvs))
+    where
+      allKeys = M.keysSet a <> M.keysSet b
+      pairs k = Forall [] <$>
+        case (M.lookup k a, M.lookup k b) of
+          (Just (Forall _ a), Just (Forall _ b)) -> unify a b
+          (Just (Forall _ a), Nothing) -> return a
+          (Nothing, Just (Forall _ b)) -> return b
+          (Nothing, Nothing) -> error $ "somehow found empty pair in env unification!"
+
+
 
 bindVar :: String -> Monotype -> InferM Monotype
 bindVar name (TVar t) | name == t = return $ TVar t

@@ -42,8 +42,13 @@ spec = do
       runInference (Env (primitiveTypes <> [("a", Forall mempty $ TVar "a"), ("b", Forall mempty $ TVar "b")])) (infer (forceParse "(+ a b)") *> use subMap) `shouldBe` Right ([("a", intT), ("b", intT)])
   describe "unify" $ do
     describe "unifies monotypes" $ do
-      -- it "unifies TBindings as expected" $ do
-        -- testUnify bindingsT bindingsT `shouldBe` Right ([], bindingsT)
+      describe "TBindings" $ do
+        it "unifies by merging" $ do
+          testUnify (TBindings [("num", Forall [] intT)]) (TBindings [("str", Forall [] stringT)]) `shouldBe` Right ([], TBindings [("num", Forall [] intT), ("str", Forall [] stringT)])
+        it "fails to unify with incompatible types for a key" $ do
+          testUnify (TBindings [("num", Forall [] intT)]) (TBindings [("num", Forall [] stringT)]) `shouldBe` Left (CannotUnify intT stringT)
+        it "unifies matching keys by unifying values" $ do
+          testUnify (TBindings [("thing", Forall [] (TVar "a"))]) (TBindings [("thing", Forall [] stringT)]) `shouldBe` Right ([("a", stringT)], TBindings [("thing", Forall [] stringT)])
       it "unifies TConsts as expected" $ do
         testUnify intT intT `shouldBe` Right ([], intT)
         testUnify stringT stringT `shouldBe` Right ([], stringT)
