@@ -42,11 +42,12 @@ spec = do
       runInference (Env (primitiveTypes <> [("a", Forall mempty $ TVar "a"), ("b", Forall mempty $ TVar "b")])) (infer (forceParse "(+ a b)") *> use subMap) `shouldBe` Right ([("a", intT), ("b", intT)])
   describe "unify" $ do
     describe "unifies monotypes" $ do
+      -- it "unifies TBindings as expected" $ do
+        -- testUnify bindingsT bindingsT `shouldBe` Right ([], bindingsT)
       it "unifies TConsts as expected" $ do
         testUnify intT intT `shouldBe` Right ([], intT)
         testUnify stringT stringT `shouldBe` Right ([], stringT)
         testUnify boolT boolT `shouldBe` Right ([], boolT)
-        testUnify bindingsT bindingsT `shouldBe` Right ([], bindingsT)
         testUnify intT stringT `shouldBe` Left (CannotUnify intT stringT)
       describe "TVars" $ do
         it "unifies similar type vars" $ do
@@ -73,8 +74,7 @@ spec = do
       testInference "\"str\"" `shouldBe` Right ([], stringT)
       testInference "1" `shouldBe` Right ([], intT)
       testInference "F" `shouldBe` Right ([], boolT)
-      runInference mempty (infer (Bindings mempty)) `shouldBe` Right bindingsT
-      testInference "(= a 1)" `shouldBe` Right ([], bindingsT)
+      testInference "(= a 1)" `shouldBe` Right ([], TBindings [("a", Forall [] intT)])
     it "Builtins" $ do
       testInference "++" `shouldBe` Right ([], TFunc stringT (TFunc stringT stringT))
     describe "Lists" $ do
@@ -82,7 +82,6 @@ spec = do
         testInference "[ 1 2 ]" `shouldBe` Right ([], TList intT)
       it "infers unused type var for empty lists" $ do
         testInference "[]" `shouldBe` Right ([], TList (TVar "a"))
-        -- testInference "({[a] a} [])" `shouldBe` Right (mempty, TList (TVar "a"))
         let res = runInference mempty $ do
               a <- infer (List [])
               b <- infer (List [])
@@ -104,3 +103,6 @@ spec = do
       it "infers proper return type" $ do
         testInference "({[a] a} 1)" `shouldBe` Right ([("a", intT)], intT)
         testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right ([("a", intT), ("b", intT)], intT)
+  describe "complex programs" $ do
+    it "infers proper types with closures" $ do
+      testInference "((= func ((= num 1) {[arg] (+ arg num)})) (func 10))" `shouldBe` Right ([("a", intT)], intT)

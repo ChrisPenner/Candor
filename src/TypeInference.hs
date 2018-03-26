@@ -30,12 +30,6 @@ makeLenses ''TypeInfo
 
 type InferM a = ExceptT InferenceError (ReaderT Env (State TypeInfo)) a
 
-freshenAll :: (Sub t, HasFreeTypes t) => t -> InferM (Substitutions, t)
-freshenAll t = do
-  freshMap <- sequenceA . M.fromSet (const freshVar) $ getFree t
-  let subs = (Substitutions freshMap)
-  return $ (subs, sub subs t)
-
 subM :: Sub t => t -> InferM t
 subM t = do
   subs <- use subMap
@@ -97,14 +91,18 @@ infer ast =
     Builtin name -> inferSymbol name
     FuncDef args expr -> inferFunc args expr
     List l -> inferList l
-    Bindings{} -> return bindingsT
+    Bindings b ->
+      TBindings . Env . fmap (Forall []) <$> traverse infer b
     Appl f args -> inferAppl f args
 
 inferAppl :: AST -> [AST] -> InferM Monotype
 inferAppl f args = do
   fType <- infer f
-  argTypes <- traverse infer args
-  foldM go fType argTypes >>= subM
+  case (fType, args) of
+    (TBindings env, [expr]) -> local (<> env) (infer expr)
+    _ -> do
+      argTypes <- traverse infer args
+      foldM go fType argTypes >>= subM
     where
       go fType next =
         subM next >>= applType fType

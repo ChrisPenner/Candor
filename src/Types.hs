@@ -10,7 +10,7 @@ import AST
 import GHC.Exts (IsList(..))
 import qualified Data.Map as M
 
-data TypeConst = IntT | StringT | BoolT | BinderT | BindingsT
+data TypeConst = IntT | StringT | BoolT | BinderT
   deriving (Show, Eq)
 
 instance Pretty TypeConst where
@@ -18,14 +18,12 @@ instance Pretty TypeConst where
   pretty StringT = "String"
   pretty BoolT = "Bool"
   pretty BinderT = "Binder"
-  pretty BindingsT = "Bindings"
 
-intT, stringT, boolT, binderT, bindingsT, varT :: Monotype
+intT, stringT, boolT, binderT, varT :: Monotype
 intT = TConst IntT
 stringT = TConst StringT
 boolT = TConst BoolT
 binderT = TConst BinderT
-bindingsT = TConst BindingsT
 varT = TVar "a"
 
 data Monotype =
@@ -33,6 +31,7 @@ data Monotype =
     | TConst TypeConst  -- Things like Int, (), etc
     | TFunc Monotype Monotype
     | TList Monotype -- List of types
+    | TBindings Env
     deriving (Show, Eq)
 
 instance Pretty Monotype where
@@ -40,11 +39,12 @@ instance Pretty Monotype where
   pretty (TConst s) = pretty s
   pretty (TFunc a b) = "(" <> pretty a <> " -> " <> pretty b <> ")"
   pretty (TList m) = "[" <> pretty m <> "]"
+  pretty (TBindings env) = "Bindings: " ++ pretty env
 
 type FreeTypes = S.Set String
 
 data Polytype = Forall FreeTypes Monotype
-  deriving Show
+  deriving (Show, Eq)
 
 instance Pretty Polytype where
   pretty (Forall quantifieds m) =
@@ -106,7 +106,12 @@ instance (Sub a, Sub b) => Sub (a, b) where
   sub subst (a, b) = (sub subst a, sub subst b)
 
 newtype Env = Env (M.Map String Polytype)
-  deriving (Show, Monoid)
+  deriving (Show, Monoid, Eq)
+
+instance Pretty Env where
+  pretty (Env binds) = "{" ++ intercalate ", " (showBind <$> M.toList binds) ++ "}"
+    where
+      showBind (k, v) = k ++ ": " ++ pretty v
 
 instance IsList Env where
   type Item Env = (String, Polytype)
