@@ -12,7 +12,7 @@ import RIO
 import qualified Data.Set as S
 import qualified Data.Map as M
 import Data.List as L
-import Data.List.NonEmpty as NE (NonEmpty(..), toList)
+import Data.List.NonEmpty as NE (NonEmpty(..), toList, fromList)
 import Control.Monad.State
 import Control.Monad.Except
 import Data.Foldable
@@ -32,8 +32,8 @@ type InferM a = ExceptT InferenceError (ReaderT Env (State TypeInfo)) a
 
 freshenAll :: (Sub t, HasFreeTypes t) => t -> InferM (Substitutions, t)
 freshenAll t = do
-  freshMap <- sequenceA . M.fromSet (const freshName) $ getFree t
-  let subs = (Substitutions (TVar <$> freshMap))
+  freshMap <- sequenceA . M.fromSet (const freshVar) $ getFree t
+  let subs = (Substitutions freshMap)
   return $ (subs, sub subs t)
 
 subM :: Sub t => t -> InferM t
@@ -44,11 +44,11 @@ subM t = do
 inferType :: AST -> Either InferenceError Monotype
 inferType = runInference (Env primitiveTypes) . infer
 
-freshName :: InferM String
-freshName = do
+freshVar :: InferM Monotype
+freshVar = do
   (name:rest) <- use freshNames
   freshNames .= rest
-  return name
+  return (TVar name)
 
 infNames :: [String]
 infNames = ((:[]) <$> ['a'..'z']) ++ do
@@ -117,25 +117,25 @@ applType ast _ = error $ "expected TFunc but got: " ++ show ast
 
 
 inferFunc :: NonEmpty String -> AST -> InferM Monotype
-inferFunc args expr = do
-  let env' = Env . M.fromList . fmap toKeyVal . NE.toList $ args
-  returnType <- local (<> env') $ infer expr
-  argTypes <- traverse (subM . TVar) args
-  returnType' <- subM returnType
-  return (nestFuncs argTypes returnType')
+inferFunc (NE.toList -> args) expr = do
+  argTypes <- replicateM (length args) freshVar
+  let argEnv = Env . M.fromList $ zip args (Forall mempty <$> argTypes)
+  returnType <- local (<> argEnv) $ infer expr
+  subM $ nestFuncs (NE.fromList argTypes) returnType
     where
-      toKeyVal name = (name, Forall mempty (TVar name))
+      mapToFresh name = freshVar >>= return . (name,)
 
 nestFuncs :: NonEmpty Monotype -> Monotype -> Monotype
-nestFuncs (x:|[]) returnType = TFunc x returnType
-nestFuncs (x:|(y:ys)) returnType = TFunc x (nestFuncs (y:|ys) returnType)
+nestFuncs (x:|[]) returnType = 
+  TFunc x returnType
+nestFuncs (x:|(y:ys)) returnType = 
+  TFunc x (nestFuncs (y:|ys) returnType)
 
 inferList :: [AST] -> InferM Monotype
-inferList [] = TList . TVar <$> freshName
+inferList [] = TList <$> freshVar
 inferList asts = do
   (nub -> (t:ts)) <- traverse infer asts
   TList <$> foldlM unify t ts
-
 
 inferSymbol :: String -> InferM Monotype
 inferSymbol name = do
@@ -159,6 +159,6 @@ freshNameAll (Forall qs t) = do
     -- variable to the result.
     substituteAllWithFresh :: Set String -> InferM Substitutions
     substituteAllWithFresh xs = do
-        let freshSubstActions = M.fromSet (const freshName) xs
+        let freshSubstActions = M.fromSet (const freshVar) xs
         freshSubsts <- sequenceA freshSubstActions
-        return . Substitutions $ (TVar <$> freshSubsts)
+        return . Substitutions $ freshSubsts
