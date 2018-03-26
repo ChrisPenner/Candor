@@ -102,6 +102,9 @@ instance Sub Polytype where
 instance Sub Env where
   sub subst (Env env) = Env $ fmap (sub subst) env
 
+instance (Sub a, Sub b) => Sub (a, b) where
+  sub subst (a, b) = (sub subst a, sub subst b)
+
 newtype Env = Env (M.Map String Polytype)
   deriving (Show, Monoid)
 

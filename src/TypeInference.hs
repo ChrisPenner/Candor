@@ -15,6 +15,7 @@ import Data.List as L
 import Data.List.NonEmpty as NE (NonEmpty(..), toList)
 import Control.Monad.State
 import Control.Monad.Except
+import Data.Foldable
 import Primitives
 import Control.Lens hiding (List)
 
@@ -27,21 +28,26 @@ data TypeInfo = TypeInfo
   }
 makeLenses ''TypeInfo
 
+type InferM a = ExceptT InferenceError (ReaderT Env (State TypeInfo)) a
+
 freshenAll :: (Sub t, HasFreeTypes t) => t -> InferM (Substitutions, t)
 freshenAll t = do
   freshMap <- sequenceA . M.fromSet (const freshName) $ getFree t
   let subs = (Substitutions (TVar <$> freshMap))
   return $ (subs, sub subs t)
 
-inferType :: AST -> Either InferenceError Monotype
-inferType = fmap snd . runInference (Env primitiveTypes) . infer
+subM :: Sub t => t -> InferM t
+subM t = do
+  subs <- use subMap
+  return (sub subs t)
 
-type InferM a = ExceptT InferenceError (ReaderT Env (State [String])) a
+inferType :: AST -> Either InferenceError Monotype
+inferType = runInference (Env primitiveTypes) . infer
 
 freshName :: InferM String
 freshName = do
-  (name:rest) <- get
-  put rest
+  (name:rest) <- use freshNames
+  freshNames .= rest
   return name
 
 infNames :: [String]
@@ -51,69 +57,72 @@ infNames = ((:[]) <$> ['a'..'z']) ++ do
   return (a : show n)
 
 runInference :: Env -> InferM a -> Either InferenceError a
-runInference env = flip evalState infNames . flip runReaderT env . runExceptT
+runInference env = flip evalState typeInfo . flip runReaderT env . runExceptT
+  where
+    typeInfo = TypeInfo {_freshNames=infNames, _subMap=mempty}
 
 class Unifyable a b where
-  unify :: a -> b -> InferM Substitutions
+  unify :: a -> b -> InferM Monotype
 
 instance Unifyable Monotype Monotype where
-  unify :: Monotype -> Monotype -> InferM Substitutions
+  unify :: Monotype -> Monotype -> InferM Monotype
   unify (TVar a) b = bindVar a b
   unify a (TVar b) = bindVar b a
-  unify (TConst a) (TConst b) | a == b = return mempty
-  unify (TList a) (TList b) = unify a b
+  unify (TConst a) (TConst b) | a == b = return (TConst a)
+  unify (TList a) (TList b) = TList <$> unify a b
   unify (TFunc a b) (TFunc a' b') = do
-    subs <- unify a a'
-    unify (sub subs b) b'
+    fType <- unify a a'
+    returnType <- (subM (b, b') >>= uncurry unify)
+    return (TFunc fType returnType)
   unify a b = throwError (CannotUnify a b)
 
-bindVar :: String -> Monotype -> InferM Substitutions
-bindVar name (TVar t) | name == t = pure mempty
+bindVar :: String -> Monotype -> InferM Monotype
+bindVar name (TVar t) | name == t = return $ TVar t
 bindVar name t | name `S.member` getFree t =
   throwError $ OccursCheckFailed name t -- Can't bind a type var to a definition containing the same type var: infinite recursion
-bindVar name t = return $ Substitutions [(name, t)]
+bindVar name t = do
+  subMap <>= Substitutions [(name, t)]
+  return t
 
 extendEnv :: Env -> String -> Polytype -> Env
 extendEnv (Env m) name t = Env $ M.insert name t m
 
-infer :: AST -> InferM (Substitutions, Monotype)
+infer :: AST -> InferM Monotype
 infer ast =
   case ast of
-    Str{} -> return (mempty, stringT)
-    Number{} -> return (mempty, intT)
-    Boolean{} -> return (mempty, boolT)
-    Symbol name -> (mempty,) <$> inferSymbol name
-    Builtin name -> (mempty,) <$> inferSymbol name
+    Str{} -> return stringT
+    Number{} -> return intT
+    Boolean{} -> return boolT
+    Symbol name -> inferSymbol name
+    Builtin name -> inferSymbol name
     FuncDef args expr -> inferFunc args expr
     List l -> inferList l
-    Bindings{} -> return (mempty, bindingsT)
-    Appl f args -> do
-      inferAppl f args
+    Bindings{} -> return bindingsT
+    Appl f args -> inferAppl f args
 
-inferAppl :: AST -> [AST] -> InferM (Substitutions, Monotype)
+inferAppl :: AST -> [AST] -> InferM Monotype
 inferAppl f args = do
-  (subsA, fType) <- infer f
-  (subsB, argTypes) <- unzip <$> traverse infer args
-  (subsC, resultT) <- foldM go (mempty, fType) argTypes
-  return (subsA <> fold subsB <> subsC, resultT)
+  fType <- infer f
+  argTypes <- traverse infer args
+  foldM go fType argTypes >>= subM
     where
-      go (subs, fType) next = do
-        (newSubs, t) <- applType fType (sub subs next)
-        return (subs <> newSubs, t)
+      go fType next =
+        subM next >>= applType fType
 
-applType :: Monotype -> Monotype -> InferM (Substitutions, Monotype)
+applType :: Monotype -> Monotype -> InferM Monotype
 applType (TFunc accept returnType) arg = do
-  subs <- unify accept arg
-  return (subs, sub subs returnType)
+  _ <- unify accept arg
+  subM returnType
 applType ast _ = error $ "expected TFunc but got: " ++ show ast
 
 
-inferFunc :: NonEmpty String -> AST -> InferM (Substitutions, Monotype)
+inferFunc :: NonEmpty String -> AST -> InferM Monotype
 inferFunc args expr = do
   let env' = Env . M.fromList . fmap toKeyVal . NE.toList $ args
-  (subs, returnType) <- local (<> env') $ infer expr
-  let argTypes = sub subs . TVar <$> args
-  return (subs, nestFuncs argTypes (sub subs returnType))
+  returnType <- local (<> env') $ infer expr
+  argTypes <- traverse (subM . TVar) args
+  returnType' <- subM returnType
+  return (nestFuncs argTypes returnType')
     where
       toKeyVal name = (name, Forall mempty (TVar name))
 
@@ -121,14 +130,11 @@ nestFuncs :: NonEmpty Monotype -> Monotype -> Monotype
 nestFuncs (x:|[]) returnType = TFunc x returnType
 nestFuncs (x:|(y:ys)) returnType = TFunc x (nestFuncs (y:|ys) returnType)
 
-inferList :: [AST] -> InferM (Substitutions, Monotype)
-inferList [] = do
-  fresh <- freshName
-  return (mempty, TList (TVar fresh))
-inferList xs = do
-  (subs, (t:ts)) <- unzip <$> traverse infer xs
-  subs' <- sequenceA $ zipWith unify (t:ts) ts
-  return (fold (subs <> subs'), TList t)
+inferList :: [AST] -> InferM Monotype
+inferList [] = TList . TVar <$> freshName
+inferList asts = do
+  (nub -> (t:ts)) <- traverse infer asts
+  TList <$> foldlM unify t ts
 
 
 inferSymbol :: String -> InferM Monotype
