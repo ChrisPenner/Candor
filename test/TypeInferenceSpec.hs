@@ -11,9 +11,13 @@ import Types
 import Parse
 import Control.Lens hiding (List)
 
-testInference :: String -> Either InferenceError Monotype
+testInference :: String -> Either InferenceError (Substitutions, Monotype)
 testInference str =
-  runInference (Env primitiveTypes) (infer (forceParse str))
+  runInference (Env primitiveTypes) $ do
+    t <- infer (forceParse str)
+    subs <- use subMap
+    return (subs, t)
+
 
 forceParse :: String -> AST
 forceParse str =
@@ -66,18 +70,18 @@ spec = do
 
   describe "infer" $ do
     it "basic AST types" $ do
-      testInference "\"str\"" `shouldBe` Right stringT
-      testInference "1" `shouldBe` Right intT
-      testInference "F" `shouldBe` Right boolT
+      testInference "\"str\"" `shouldBe` Right ([], stringT)
+      testInference "1" `shouldBe` Right ([], intT)
+      testInference "F" `shouldBe` Right ([], boolT)
       runInference mempty (infer (Bindings mempty)) `shouldBe` Right bindingsT
-      testInference "(= a 1)" `shouldBe` Right bindingsT
+      testInference "(= a 1)" `shouldBe` Right ([], bindingsT)
     it "Builtins" $ do
-      testInference "++" `shouldBe` Right (TFunc stringT (TFunc stringT stringT))
+      testInference "++" `shouldBe` Right ([], TFunc stringT (TFunc stringT stringT))
     describe "Lists" $ do
       it "infers type of homogenous lists" $ do
-        testInference "[ 1 2 ]" `shouldBe` Right (TList intT)
+        testInference "[ 1 2 ]" `shouldBe` Right ([], TList intT)
       it "infers unused type var for empty lists" $ do
-        testInference "[]" `shouldBe` Right (TList (TVar "a"))
+        testInference "[]" `shouldBe` Right ([], TList (TVar "a"))
         -- testInference "({[a] a} [])" `shouldBe` Right (mempty, TList (TVar "a"))
         let res = runInference mempty $ do
               a <- infer (List [])
@@ -88,20 +92,15 @@ spec = do
         testInference "[\"a\" 1]" `shouldBe` Left (CannotUnify stringT intT)
     describe "Symbols" $ do
       it "infers type of symbols from env" $ do
-        testInference "+" `shouldBe` Right (TFunc intT (TFunc intT intT))
+        testInference "+" `shouldBe` Right ([], TFunc intT (TFunc intT intT))
     describe "FuncDefs" $ do
       it "infers type of functions" $ do
-        testInference "{[a b] (+ a b)}" `shouldBe` Right (TFunc intT (TFunc intT intT))
-        -- testInference "{[a b] (+ a b)}" `shouldBe` Right ([("a", intT), ("b", intT)], (TFunc intT (TFunc intT intT)))
-        testInference "{[a] a}" `shouldBe` Right (TFunc (TVar "a") (TVar "a"))
-        testInference "{[a] 1}" `shouldBe` Right (TFunc (TVar "a") intT)
-        testInference "{[a] [1 a]}" `shouldBe` Right (TFunc intT (TList intT))
-        -- testInference "{[a] [1 a]}" `shouldBe` Right ([("a", intT)], (TFunc intT (TList intT)))
-        testInference "{[a b] [a b]}" `shouldBe` Right (TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b"))))
-        -- testInference "{[a b] [a b]}" `shouldBe` Right ([("a", TVar "b")], (TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b")))))
+        testInference "{[a b] (+ a b)}" `shouldBe` Right ([("a", intT), ("b", intT)], (TFunc intT (TFunc intT intT)))
+        testInference "{[a] a}" `shouldBe` Right ([], TFunc (TVar "a") (TVar "a"))
+        testInference "{[a] 1}" `shouldBe` Right ([], TFunc (TVar "a") intT)
+        testInference "{[a] [1 a]}" `shouldBe` Right ([("a", intT)], (TFunc intT (TList intT)))
+        testInference "{[a b] [a b]}" `shouldBe` Right ([("a", TVar "b")], (TFunc (TVar "b") (TFunc (TVar "b") (TList (TVar "b")))))
     describe "Appl" $ do
       it "infers proper return type" $ do
-        testInference "({[a] a} 1)" `shouldBe` Right intT
-        -- testInference "({[a] a} 1)" `shouldBe` Right ([("a", intT)], intT)
-        testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right intT
-        -- testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right ([("a", intT), ("b", intT)], intT)
+        testInference "({[a] a} 1)" `shouldBe` Right ([("a", intT)], intT)
+        testInference "({[a b] (+ a b)} 1 2)" `shouldBe` Right ([("a", intT), ("b", intT)], intT)
