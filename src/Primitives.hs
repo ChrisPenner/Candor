@@ -1,4 +1,5 @@
-{-# language OverloadedLists #-}
+{-# LANGUAGE OverloadedLists #-}
+
 module Primitives where
 
 import AST
@@ -10,13 +11,13 @@ import qualified Data.Map as M
 primitives :: Bindings
 primitives = Builtin <$> M.fromSet id (M.keysSet primitiveTypes)
 
-primitiveTypes :: M.Map String Polytype
+primitiveTypes :: M.Map String Monotype
 primitiveTypes =
-  [ ("+", Forall mempty $ TFunc intT (TFunc intT intT))
-  , ("-", Forall mempty $ TFunc intT (TFunc intT intT))
-  , ("*", Forall mempty $ TFunc intT (TFunc intT intT))
-  , ("merge", Forall mempty $ TFunc (TList (TBindings [])) (TBindings []))
-  , ("++", Forall mempty $ TFunc stringT (TFunc stringT stringT))
-  , ("if", Forall mempty $ TFunc boolT (TFunc varT (TFunc varT varT)))
-  , ("==", Forall mempty $ TFunc varT (TFunc varT boolT))
+  [ ("+", TFunc intT (TFunc intT intT))
+  , ("-", TFunc intT (TFunc intT intT))
+  , ("*", TFunc intT (TFunc intT intT))
+  , ("merge", TFunc (TList (TRows [])) (TRows []))
+  , ("++", TFunc stringT (TFunc stringT stringT))
+  , ("if", TFunc boolT (TFunc varT (TFunc varT varT)))
+  , ("==", TFunc varT (TFunc varT boolT))
   ]
