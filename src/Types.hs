@@ -87,6 +87,7 @@ instance HasFreeTypes Monotype where
   getFree (TConst _) = S.empty
   getFree (TFunc a b) = getFree a <> getFree b
   getFree (TList t) = getFree t
+  getFree (TRows m) = foldMap getFree m
 
 -- instance HasFreeTypes Polytype where
 --   getFree :: Polytype -> FreeTypes

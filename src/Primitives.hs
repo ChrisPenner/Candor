@@ -16,7 +16,6 @@ primitiveTypes =
   [ ("+", TFunc intT (TFunc intT intT))
   , ("-", TFunc intT (TFunc intT intT))
   , ("*", TFunc intT (TFunc intT intT))
-  , ("merge", TFunc (TList (TRows [])) (TRows []))
   , ("++", TFunc stringT (TFunc stringT stringT))
   , ("if", TFunc boolT (TFunc varT (TFunc varT varT)))
   , ("==", TFunc varT (TFunc varT boolT))

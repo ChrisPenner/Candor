@@ -123,8 +123,8 @@ spec = do
          do it "infers binding types" $
               do testInference "(= a 1)" `shouldBe`
                    Right ([], TRows [("a", intT)])
-                 testInference "(merge [(= a 1) (= b \"hi\")])" `shouldBe`
-                   Right ([], TRows [("a", intT)])
+                 testInference "{ a : 1,  b : \"hi\", }" `shouldBe`
+                   Right ([], TRows [("a", intT), ("b", stringT)])
        describe "Lists" $
          do it "infers type of homogenous lists" $
               do testInference "[ 1 2 ]" `shouldBe` Right ([], TList intT)

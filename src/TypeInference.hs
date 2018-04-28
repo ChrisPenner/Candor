@@ -129,11 +129,21 @@ infer ast =
     Bindings b -> TRows <$> traverse infer b
     Appl f args -> inferAppl f args
 
+-- mergeRows :: Monotype -> Monotype
+-- mergeRows (List rows) = TRows . foldl' combine [] rows
+--   where
+--     combine m (TRows n) = m <> n
+--     combine a b =
+--       error $
+--       "expected TRows in mergeRows but got: " ++ show a ++ " and " ++ show b
 inferAppl :: AST -> [AST] -> InferM Monotype
 inferAppl f args = do
   fType <- infer f
   case (fType, args) of
     (TRows rows, [expr]) -> local (<> Env rows) (infer expr)
+    -- (TRowMerge, [rowList]) -> do
+    -- rowTypes <- infer rowList
+    -- return $ mergeRows rowTypes
     _ -> do
       argTypes <- traverse infer args
       foldM go fType argTypes >>= subM
