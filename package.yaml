@@ -32,6 +32,8 @@ dependencies:
 - lens == 4.15.*
 - containers == 0.5.*
 - rio == 0.0.*
+- recursion-schemes == 5.0.*
+- deriving-compat
 
 library:
   source-dirs: src

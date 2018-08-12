@@ -10,17 +10,18 @@
 
 module TypeInference where
 
-import RIO
-import qualified Data.Set as S
+import Control.Lens hiding (List)
+import Control.Monad.Except
+import Control.Monad.State
+import Data.Foldable
+import Data.Functor.Foldable
+import Data.List as L
+import Data.List.NonEmpty as NE (NonEmpty(..), fromList, toList)
 import qualified Data.Map as M
 import qualified Data.Map.Merge.Lazy as M
-import Data.List as L
-import Data.List.NonEmpty as NE (NonEmpty(..), toList, fromList)
-import Control.Monad.State
-import Control.Monad.Except
-import Data.Foldable
+import qualified Data.Set as S
 import Primitives
-import Control.Lens hiding (List)
+import RIO
 
 import AST
 import Types
@@ -34,9 +35,7 @@ makeLenses ''TypeInfo
 
 type InferM a = ExceptT InferenceError (ReaderT Env (State TypeInfo)) a
 
-subM
-  :: Sub t
-  => t -> InferM t
+subM :: Sub t => t -> InferM t
 subM t = do
   subs <- use subMap
   return (sub subs t)
@@ -52,21 +51,17 @@ freshVar = do
 
 infNames :: [String]
 infNames =
-  ((: []) <$> ['a' .. 'z']) ++
-  do n <- [1 ..] :: [Int]
-     a <- ['a' .. 'z']
-     return (a : show n)
+  ((: []) <$> ['a' .. 'z']) ++ do
+    n <- [1 ..] :: [Int]
+    a <- ['a' .. 'z']
+    return (a : show n)
 
 runInference :: Env -> InferM a -> Either InferenceError a
 runInference env = flip evalState typeInfo . flip runReaderT env . runExceptT
   where
-    typeInfo =
-      TypeInfo
-      { _freshNames = infNames
-      , _subMap = mempty
-      }
+    typeInfo = TypeInfo {_freshNames = infNames, _subMap = mempty}
 
-class Unifyable a b  where
+class Unifyable a b where
   unify :: a -> b -> InferM Monotype
 
 instance Unifyable (M.Map String Monotype) (M.Map String Monotype) where
@@ -118,7 +113,7 @@ extendEnv (Env m) name t = Env $ M.insert name t m
 
 infer :: AST -> InferM Monotype
 infer ast =
-  case ast of
+  case unfix ast of
     Str {} -> return stringT
     Number {} -> return intT
     Boolean {} -> return boolT

@@ -1,12 +1,13 @@
-{-# language TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell #-}
+
 module Env where
 
-import RIO
 import AST
 import Control.Lens
+import RIO
 
 data Env = Env
   { _env :: Map String AST
-  } deriving (Show, Eq)
+  }
 
 makeLenses ''Env

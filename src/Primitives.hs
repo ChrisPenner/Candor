@@ -4,12 +4,13 @@ module Primitives where
 
 import AST
 
+import Data.Functor.Foldable
+import qualified Data.Map as M
 import RIO
 import Types
-import qualified Data.Map as M
 
 primitives :: Bindings
-primitives = Builtin <$> M.fromSet id (M.keysSet primitiveTypes)
+primitives = Fix . Builtin <$> M.fromSet id (M.keysSet primitiveTypes)
 
 primitiveTypes :: M.Map String Monotype
 primitiveTypes =

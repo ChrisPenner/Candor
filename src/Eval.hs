@@ -1,31 +1,33 @@
-{-# language ViewPatterns #-}
+{-# LANGUAGE ViewPatterns #-}
+
 module Eval where
 
-import RIO
 import AST
-import qualified Data.Map as M
-import Data.List.NonEmpty (NonEmpty(..))
-import Primitives
 import Control.Monad.Except
+import Data.Functor.Foldable
+import Data.List.NonEmpty (NonEmpty(..))
+import qualified Data.Map as M
+import Primitives
+import RIO
 
 eval :: AST -> Either String AST
 eval ast = runReaderT (eval' ast) primitives
 
 eval' :: AST -> EvalM AST
-eval' (Symbol name) = do
+eval' (unfix -> Symbol name) = do
   res <- asks (M.lookup name)
   case res of
     Just expr -> eval' expr
     Nothing -> throwError $ "no symbol in scope for: " ++ name
-eval' (Appl h []) = eval' h
-eval' (Appl f args) = do
+eval' (unfix -> Appl h []) = eval' h
+eval' (unfix -> Appl f args) = do
   appl <- eval' f
-  case appl of
+  case unfix appl of
     Bindings newBinds -> bindings newBinds args
     Builtin name -> builtin name args
     FuncDef binders expr -> func binders args expr
-    _ ->  throwError $ "expected function not expression: " ++ show f
-eval' (List elems) = List <$> traverse eval' elems
+    _ -> throwError $ "expected function not expression: " ++ pretty f
+eval' (unfix -> List elems) = Fix . List <$> traverse eval' elems
 eval' v = return v
 
 bindings :: Bindings -> [AST] -> EvalM AST
@@ -43,7 +45,7 @@ builtin "+" = numBinOp (+)
 builtin "-" = numBinOp (-)
 builtin "*" = numBinOp (*)
 builtin "++" = stringBinOp (++)
-builtin "=="  = eqBool
+builtin "==" = eqBool
 builtin "merge" = merge
 builtin "if" = if'
 builtin name = notFound name
@@ -51,52 +53,58 @@ builtin name = notFound name
 if' :: [AST] -> EvalM AST
 if' [p, x, y] = do
   res <- eval' p
-  case res of
+  case unfix res of
     Boolean True -> eval' x
     Boolean False -> eval' y
-    _ -> throwError $ "Expected a Boolean predicate, got: " ++ show res
-if' args = throwError $ "Expected a Boolean, then two expressions; got:" ++ show args
+    _ -> throwError $ "Expected a Boolean predicate, got: " ++ pretty res
+if' args =
+  throwError $ "Expected a Boolean, then two expressions; got:" ++ pretty args
 
 numBinOp :: (Int -> Int -> Int) -> [AST] -> EvalM AST
 numBinOp f [x, y] = do
   res <- traverse eval' [x, y]
-  case res of
-    [Number x', Number y'] -> return $ Number (f x' y')
-    args -> throwError $ "expected 2 number args, got:" ++ show args
-numBinOp _ args = throwError $ "expected 2 numbers, got: " ++ show args
+  case unfix <$> res of
+    [Number x', Number y'] -> return . Fix $ Number (f x' y')
+    args -> throwError $ "expected 2 number args, got:" ++ pretty args
+numBinOp _ args = throwError $ "expected 2 numbers, got: " ++ pretty args
 
 stringBinOp :: (String -> String -> String) -> [AST] -> EvalM AST
 stringBinOp f [x, y] = do
   res <- traverse eval' [x, y]
-  case res of
-    [Str x', Str y'] -> return $ Str (f x' y')
-    args -> throwError $ "expected 2 string args, got:" ++ show args
-stringBinOp _ args = throwError $ "expected 2 strings, got: " ++ show (length args)
+  case unfix <$> res of
+    [Str x', Str y'] -> return . Fix $ Str (f x' y')
+    args -> throwError $ "expected 2 string args, got:" ++ pretty args
+stringBinOp _ args =
+  throwError $ "expected 2 strings, got: " ++ show (length args)
 
 eqBool :: [AST] -> EvalM AST
-eqBool  [a, b] = do
+eqBool [a, b] = do
   a' <- eval' a
   b' <- eval' b
-  return $ Boolean (a' == b')
-eqBool _ = return $ Boolean False
+  return . Fix $ Boolean (a' == b')
+eqBool _ = return . Fix $ Boolean False
 
 merge :: [AST] -> EvalM AST
-merge  [lst] = do
+merge [lst] = do
   lst' <- eval' lst
-  case lst' of
+  case unfix lst' of
     List binds -> do
       allBindings <- traverse assertBindings binds
-      return . Bindings $ M.unions allBindings
-    args -> throwError $ "Expected single list argument to merge but got:" ++ show args
-merge args = throwError $ "Expected single list argument to merge but got:" ++ show args
+      return . Fix . Bindings $ M.unions allBindings
+    args ->
+      throwError $
+      "Expected single list argument to merge but got:" ++ pretty args
+merge args =
+  throwError $ "Expected single list argument to merge but got:" ++ pretty args
 
 assertBindings :: AST -> EvalM (Map String AST)
-assertBindings (Bindings b) = return b
-assertBindings b = throwError $ "expected bindings; found: " ++ show b
+assertBindings (unfix -> Bindings b) = return b
+assertBindings b = throwError $ "expected bindings; found: " ++ pretty b
 
 notFound :: String -> [AST] -> EvalM AST
-notFound name args = throwError $ "no symbol in scope for " ++ name ++ ": " ++ show args
+notFound name args =
+  throwError $ "no symbol in scope for " ++ name ++ ": " ++ pretty args
 
 assertSymbols :: AST -> EvalM String
-assertSymbols (Symbol name) = return name
-assertSymbols b = throwError $ "expected binding symbol; found: " ++ show b
+assertSymbols (unfix -> Symbol name) = return name
+assertSymbols b = throwError $ "expected binding symbol; found: " ++ pretty b
