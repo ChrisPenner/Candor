@@ -11,7 +11,7 @@ module AST where
 import Data.Eq.Deriving
 import Data.Functor.Foldable
 import Data.List
-import Data.Map as M
+import qualified Data.Map as M
 import RIO
 import Text.Show.Deriving
 
@@ -22,15 +22,13 @@ type AST = Fix ASTF
 
 data ASTF r
   = Appl r
-         [r]
+         r
   | FuncDef String
             r
   | List [r]
-  | Builtin String
   | Symbol String
   | P Prim
   | Bindings (Map String AST)
-  | BindingsPrim (Map String Prim)
   deriving (Functor, Foldable, Typeable)
 
 data Prim
@@ -38,18 +36,23 @@ data Prim
   | Number Int
   | Boolean Bool
   | Func (Prim -> Prim)
+  | BindingsPrim (Map String Prim)
+  | BindingSymbol String
   deriving (Typeable)
 
 instance Show Prim where
-  show (Str s) = "\"" ++ s ++ "\""
-  show (Number n) = show n
-  show (Boolean b) = show b
-  show (Func _) = "Func (...)"
+  show (Str s) = "(Str " ++ s ++ ")"
+  show (Number n) = "(Number " ++ show n ++ ")"
+  show (Boolean b) = "(Boolean " ++ show b ++ ")"
+  show (Func _) = "(Func ...)"
+  show (BindingsPrim m) = "(BindingsPrim " ++ show m ++ ")"
+  show (BindingSymbol s) = "(BindingSymbol " ++ show s ++ ")"
 
 instance Eq Prim where
   Str s == Str s' = s == s'
   Number n == Number n' = n == n'
   Boolean b == Boolean b' = b == b'
+  BindingSymbol s == BindingSymbol s' = s == s'
   (Func _) == _ = False
   _ == _ = False
 
@@ -71,19 +74,19 @@ instance Pretty Prim where
   pretty (Str s) = "\"" ++ s ++ "\""
   pretty (Number n) = show n
   pretty (Func _) = "Func (...)"
+  pretty (BindingsPrim m) = "BindingsPrim{" ++ show (pretty <$> m) ++ "}"
+  pretty (BindingSymbol s) = "BindingSymbol(" ++ s ++ ")"
   pretty (Boolean b) =
     if b
       then "T"
       else "F"
 
 instance (Pretty r) => Pretty (ASTF r) where
-  pretty (Appl f args) =
-    "(" ++ pretty f ++ intercalate " " (pretty <$> args) ++ ")"
+  pretty (Appl f arg) = "(" ++ pretty f ++ pretty arg ++ ")"
   pretty (P p) = pretty p
   pretty (FuncDef arg expr) = "{" ++ show arg ++ " -> " ++ pretty expr ++ "}"
   pretty (List args) = "[" ++ intercalate ", " (pretty <$> args) ++ "]"
-  pretty (Builtin name) = name
-  pretty (Symbol name) = name
+  pretty (Symbol name) = name ++ " "
   pretty (Bindings binds) =
     "{" ++ intercalate ", " (showBind <$> M.toList binds) ++ "}"
     where
@@ -94,8 +97,14 @@ instance (Pretty r) => Pretty (ASTF r) where
 prim :: Prim -> AST
 prim = Fix . P
 
-apply :: AST -> [AST] -> AST
-apply f args = Fix (Appl f args)
+apply :: AST -> AST -> AST
+apply f arg = Fix (Appl f arg)
+
+curryApply :: AST -> [AST] -> AST
+curryApply f args = foldl' go f args
+  where
+    go :: AST -> AST -> AST
+    go f' arg = Fix (Appl f' arg)
 
 funcDef :: String -> AST -> AST
 funcDef arg expr = Fix (FuncDef arg expr)
@@ -114,5 +123,8 @@ str = prim . Str
 
 boolean :: Bool -> AST
 boolean = prim . Boolean
+
+bindSym :: String -> AST
+bindSym = prim . BindingSymbol
 
 type Bindings = Map String Prim

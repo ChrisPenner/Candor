@@ -4,7 +4,6 @@
 module Parse where
 
 import Data.Functor.Foldable
-import Data.Generics.Uniplate.Data
 import qualified Data.Map as M
 import RIO hiding (first, many, some, try)
 import Text.Megaparsec hiding (parse)
@@ -25,9 +24,11 @@ symbol :: String -> Parser String
 symbol = L.symbol spacers
 
 expression :: Parser (AST)
-expression =
-  try singleBinding <|> appl <|> stringLiteral <|> try numberLiteral <|>
-  try boolLiteral <|>
+expression
+  -- try singleBinding <|>
+ =
+  appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|>
+  bindSymbol <|>
   symbolLiteral <|>
   listLiteral <|>
   try recordLiteral <|>
@@ -62,17 +63,22 @@ symbolLexeme = L.lexeme spacers (some (noneOf ("\t\n\r ()[]{}<>:," :: String)))
 symbolLiteral :: Parser (AST)
 symbolLiteral = Fix . Symbol <$> symbolLexeme
 
+bindSymbol :: Parser AST
+bindSymbol =
+  Fix . P . BindingSymbol <$> do
+    _ <- char ':'
+    symbolLexeme
+
 listLiteral :: Parser (AST)
 listLiteral = Fix . List <$> list
 
-singleBinding :: Parser (AST)
-singleBinding = do
-  between (symbol "(") (symbol ")") $ do
-    _ <- L.lexeme spacers (char '=')
-    bindingName <- symbolLexeme
-    expr <- expression
-    return (Fix $ Bindings [(bindingName, expr)])
-
+-- singleBinding :: Parser (AST)
+-- singleBinding = do
+--   between (symbol "(") (symbol ")") $ do
+--     _ <- L.lexeme spacers (char '=')
+--     bindingName <- symbolLexeme
+--     expr <- expression
+--     return (Fix $ Bindings [(bindingName, expr)])
 recordLiteral :: Parser AST
 recordLiteral =
   Fix . Bindings . M.fromList <$> do
@@ -91,12 +97,16 @@ funcLiteral =
     return (Fix $ FuncDef arg expr)
 
 appl :: Parser (AST)
-appl =
-  Fix <$>
-  between
-    (symbol "(")
-    (symbol ")")
-    (Appl <$> expression <*> (expression `sepBy1` spacers))
+appl = do
+  (f, args) <-
+    between (symbol "(") (symbol ")") $ do
+      f <- expression
+      args <- expression `sepBy1` spacers
+      return (f, args)
+  return $ foldl' go f args
+  where
+    go :: AST -> AST -> AST
+    go f arg = Fix (Appl f arg)
 
 list :: Parser [AST]
 list = between (symbol "[") (symbol "]") (many expression)
