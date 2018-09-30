@@ -25,31 +25,34 @@ default-extensions:
   - OverloadedStrings
 
 dependencies:
-- base >= 4.7 && < 5
-- megaparsec == 6.4.*
-- text == 1.2.*
-- mtl == 2.2.*
-- lens == 4.15.*
-- containers == 0.5.*
-- rio == 0.0.*
-- recursion-schemes == 5.0.*
+- base >= 4.11 && < 5
+- megaparsec
+- text
+- mtl
+- lens
+- containers
+- rio
+- recursion-schemes
+- recursion-schemes-ext
 - deriving-compat
+- free
+- uniplate
 
 library:
   source-dirs: src
 
-executables:
-  candor-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - candor
-    - haskeline == 0.7.4.*
-    - optparse-applicative == 0.14.0.*
+# executables:
+#   candor-exe:
+#     main:                Main.hs
+#     source-dirs:         app
+#     ghc-options:
+#     - -threaded
+#     - -rtsopts
+#     - -with-rtsopts=-N
+#     dependencies:
+#     - candor
+#     - haskeline
+#     - optparse-applicative
 
 tests:
   candor-test:
@@ -61,5 +64,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - candor
-    - hspec == 2.4.*
-    - text == 1.2.*
+    - hspec
+    - text

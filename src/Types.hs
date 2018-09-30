@@ -4,12 +4,12 @@
 
 module Types where
 
-import RIO
-import Data.Set as S
-import Data.List as L
 import AST
-import GHC.Exts (IsList(..))
+import Data.List as L
 import qualified Data.Map as M
+import Data.Set as S
+import GHC.Exts (IsList(..))
+import RIO
 
 data TypeConst
   = IntT
@@ -78,7 +78,7 @@ instance Pretty InferenceError where
     "Occurs check failed: " <> name <> " already appears in " <> pretty ty
   pretty (UnknownIdentifier name) = "Unknown identifier: " <> name
 
-class HasFreeTypes t  where
+class HasFreeTypes t where
   getFree :: t -> FreeTypes
 
 instance HasFreeTypes Monotype where
@@ -96,7 +96,7 @@ instance HasFreeTypes Env where
   getFree :: Env -> FreeTypes
   getFree (Env env) = foldMap getFree env
 
-class Sub t  where
+class Sub t where
   sub :: Substitutions -> t -> t
 
 instance Sub Substitutions where
@@ -118,13 +118,12 @@ instance Sub Monotype where
 instance Sub Env where
   sub subst (Env env) = Env $ fmap (sub subst) env
 
-instance (Sub a, Sub b) =>
-         Sub (a, b) where
+instance (Sub a, Sub b) => Sub (a, b) where
   sub subst (a, b) = (sub subst a, sub subst b)
 
 newtype Env =
   Env (M.Map String Monotype)
-  deriving (Show, Monoid, Eq)
+  deriving (Show, Semigroup, Monoid, Eq)
 
 instance Pretty Env where
   pretty (Env binds) =
@@ -141,11 +140,13 @@ newtype Substitutions =
   Substitutions (M.Map String Monotype)
   deriving (Show, Eq)
 
-instance Monoid Substitutions where
-  mappend subst1 subst2 = Substitutions (s1 `M.union` s2)
+instance Semigroup Substitutions where
+  subst1 <> subst2 = Substitutions (s1 `M.union` s2)
     where
       Substitutions s1 = subst1
       Substitutions s2 = sub subst1 subst2
+
+instance Monoid Substitutions where
   mempty = Substitutions mempty
 
 instance IsList Substitutions where
