@@ -5,7 +5,6 @@ module ParsesSpec where
 import RIO
 
 import AST
-import Data.Functor.Foldable
 import Parse
 import Test.Hspec
 
@@ -13,54 +12,25 @@ spec :: Spec
 spec = do
   describe "Parser" $ do
     it "parses simple arithmetic" $ do
-      parse "(+ 1 2)" `shouldBe`
-        Right
-          (Fix $
-           Appl (Fix . P $ Symbol "+") [Fix . P $ Number 1, Fix . P $ Number 2])
+      parse "(+ 1 2)" `shouldBe` Right (apply (sym "+") [num 1, num 2])
       parse "(- (+ 1 2) 3)" `shouldBe`
-        Right
-          (Fix $
-           Appl
-             (Fix . P $ Symbol "-")
-             [ Fix $
-               Appl
-                 (Fix . P $ Symbol "+")
-                 [Fix . P $ Number 1, Fix . P $ Number 2]
-             , Fix . P $ Number 3
-             ])
+        Right (apply (sym "-") [apply (sym "+") [num 1, num 2], num 3])
     it "parses bindings" $ do
-      parse "(= name 42)" `shouldBe`
-        Right (Fix . P $ Bindings [("name", Fix . P $ Number 42)])
+      parse "(= name 42)" `shouldBe` Right (binding [("name", num 42)])
     it "parses funcs" $ do
-      parse "{[num] (* num 2) }" `shouldBe`
-        Right
-          (Fix $
-           FuncDef
-             ["num"]
-             (Fix $
-              Appl
-                (Fix . P $ Symbol "*")
-                [Fix . P $ Symbol "num", Fix . P $ Number 2]))
+      parse "{num (* num 2) }" `shouldBe`
+        Right (funcDef "num" (apply (sym "*") [sym "num", num 2]))
     it
       "parses definitions alongside expressions"
-      (parse "((= times_two { [num] (* num 2) }) (times_two 5))" `shouldBe`
+      (parse "((= times_two { num (* num 2) }) (times_two 5))" `shouldBe`
        Right
-         (Fix $
-          Appl
-            (Fix . P $
-             Bindings
+         (apply
+            (binding
                [ ( "times_two"
-                 , Fix $
-                   FuncDef
-                     ["num"]
-                     (Fix $
-                      Appl
-                        (Fix . P $ Symbol "*")
-                        [Fix . P $ Symbol "num", Fix . P $ Number 2]))
+                 , funcDef "num" (apply (sym "*") [sym "num", num 2]))
                ])
-            [Fix $ Appl (Fix . P $ Symbol "times_two") [Fix . P $ Number 5]]))
+            [apply (sym "times_two") [num 5]]))
     it "parses bools" $ do
-      parse "F" `shouldBe` Right (Fix . P $ Boolean False)
-      parse "T" `shouldBe` Right (Fix . P $ Boolean True)
-    it "parses strings" $ do
-      parse "\"string\"" `shouldBe` Right (Fix . P $ Str "string")
+      parse "F" `shouldBe` Right (boolean False)
+      parse "T" `shouldBe` Right (boolean True)
+    it "parses strings" $ do parse "\"string\"" `shouldBe` Right (str "string")

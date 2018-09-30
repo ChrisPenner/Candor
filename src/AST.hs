@@ -8,6 +8,7 @@
 
 module AST where
 
+import Data.Eq.Deriving
 import Data.Functor.Foldable
 import Data.List
 import Data.Map as M
@@ -45,12 +46,20 @@ instance Show Prim where
   show (Boolean b) = show b
   show (Func _) = "Func (...)"
 
--- deriving instance Show Prim
--- deriving instance Eq Prim
--- 
+instance Eq Prim where
+  Str s == Str s' = s == s'
+  Number n == Number n' = n == n'
+  Boolean b == Boolean b' = b == b'
+  (Func _) == _ = False
+  _ == _ = False
+
 deriveShow ''ASTF
 
 deriveShow1 ''ASTF
+
+deriveEq ''ASTF
+
+deriveEq1 ''ASTF
 
 instance Pretty a => Pretty [a] where
   pretty xs = "[ " ++ foldMap ((++ ",") . pretty) xs ++ "]"
@@ -85,8 +94,14 @@ instance (Pretty r) => Pretty (ASTF r) where
 prim :: Prim -> AST
 prim = Fix . P
 
-binding :: Map String Prim -> AST
-binding = Fix . BindingsPrim
+apply :: AST -> [AST] -> AST
+apply f args = Fix (Appl f args)
+
+funcDef :: String -> AST -> AST
+funcDef arg expr = Fix (FuncDef arg expr)
+
+binding :: Map String AST -> AST
+binding = Fix . Bindings
 
 sym :: String -> AST
 sym = Fix . Symbol
