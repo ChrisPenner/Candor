@@ -18,12 +18,11 @@ data TypeConst
   | BinderT
   deriving (Show, Eq)
 
-instance Pretty TypeConst where
-  pretty IntT = "Int"
-  pretty StringT = "String"
-  pretty BoolT = "Bool"
-  pretty BinderT = "Binder"
-
+-- instance Pretty TypeConst where
+--   pretty IntT = "Int"
+--   pretty StringT = "String"
+--   pretty BoolT = "Bool"
+--   pretty BinderT = "Binder"
 intT, stringT, boolT, binderT, varT :: Monotype
 intT = TConst IntT
 
@@ -44,16 +43,15 @@ data Monotype
   | TRows (M.Map String Monotype)
   deriving (Show, Eq)
 
-instance Pretty Monotype where
-  pretty (TVar s) = s
-  pretty (TConst s) = pretty s
-  pretty (TFunc a b) = "(" <> pretty a <> " -> " <> pretty b <> ")"
-  pretty (TList m) = "[" <> pretty m <> "]"
-  pretty (TRows rows) =
-    "{" ++ intercalate ", " (showRow <$> M.toList rows) ++ "}"
-    where
-      showRow (k, v) = k ++ ": " ++ pretty v
-
+-- instance Pretty Monotype where
+--   pretty (TVar s) = s
+--   pretty (TConst s) = pretty s
+--   pretty (TFunc a b) = "(" <> pretty a <> " -> " <> pretty b <> ")"
+--   pretty (TList m) = "[" <> pretty m <> "]"
+--   pretty (TRows rows) =
+--     "{" ++ intercalate ", " (showRow <$> M.toList rows) ++ "}"
+--     where
+--       showRow (k, v) = k ++ ": " ++ pretty v
 type FreeTypes = S.Set String
 
 -- data Polytype =
@@ -71,13 +69,12 @@ data InferenceError
   | UnknownIdentifier String
   deriving (Show, Eq)
 
-instance Pretty InferenceError where
-  pretty (CannotUnify t1 t2) =
-    "Cannot unify " <> pretty t1 <> " with " <> pretty t2
-  pretty (OccursCheckFailed name ty) =
-    "Occurs check failed: " <> name <> " already appears in " <> pretty ty
-  pretty (UnknownIdentifier name) = "Unknown identifier: " <> name
-
+-- instance Pretty InferenceError where
+--   pretty (CannotUnify t1 t2) =
+--     "Cannot unify " <> pretty t1 <> " with " <> pretty t2
+--   pretty (OccursCheckFailed name ty) =
+--     "Occurs check failed: " <> name <> " already appears in " <> pretty ty
+--   pretty (UnknownIdentifier name) = "Unknown identifier: " <> name
 class HasFreeTypes t where
   getFree :: t -> FreeTypes
 
@@ -125,12 +122,11 @@ newtype Env =
   Env (M.Map String Monotype)
   deriving (Show, Semigroup, Monoid, Eq)
 
-instance Pretty Env where
-  pretty (Env binds) =
-    "{" ++ intercalate ", " (showBind <$> M.toList binds) ++ "}"
-    where
-      showBind (k, v) = k ++ ": " ++ pretty v
-
+-- instance Pretty Env where
+--   pretty (Env binds) =
+--     "{" ++ intercalate ", " (showBind <$> M.toList binds) ++ "}"
+--     where
+--       showBind (k, v) = k ++ ": " ++ pretty v
 instance IsList Env where
   type Item Env = (String, Monotype)
   fromList = Env . M.fromList

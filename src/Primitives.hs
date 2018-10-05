@@ -1,9 +1,12 @@
 {-# LANGUAGE OverloadedLists #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE ViewPatterns #-}
 
 module Primitives where
 
 import AST
+import Data.Functor.Foldable
 
 -- import Data.Functor.Foldable
 import qualified Data.Map as M
@@ -21,30 +24,35 @@ import RIO
 --   , ("if", TFunc boolT (TFunc varT (TFunc varT varT)))
 --   , ("==", TFunc varT (TFunc varT boolT))
 --   ]
-primitives :: Bindings Int
-primitives = undefined
-  -- M.fromList
-  --   [ ("+", intBinOp (+))
-  --   , ("-", intBinOp (-))
-  --   , ("*", intBinOp (*))
-  --   , ("++", stringBinOp (++))
-  --   , ("if", collapse ifPrim)
+primitives :: Bindings SimpleAST
+primitives =
+  M.fromList
+    [ ("+", intBinOp (+))
+    , ("-", intBinOp (-))
+    -- , ("*", intBinOp (*))
+    -- , ("++", stringBinOp (++))
+    -- , ("if", collapse ifPrim)
   --   , ("==", collapse eq)
   --   , ("=", collapse singleBind)
-  --   ]
--- class Collapsable f where
-  -- collapse :: f -> Prim
--- instance Collapsable (Prim -> Prim) where
-  -- collapse = Func
--- instance Collapsable (Prim -> Prim -> Prim) where
-  -- collapse f = Func $ collapse . f
--- instance Collapsable (Prim -> Prim -> Prim -> Prim) where
-  -- collapse f = Func $ collapse . f
--- intBinOp :: (Int -> Int -> Int) -> Prim
--- intBinOp f = collapse go
-  -- where
-  --   go (Number a) (Number b) = Number (f a b)
-  --   go x y = error $ "expected numbers in func, got: " ++ show (x, y)
+    ]
+
+class Collapsable f where
+  collapse :: f -> SimpleAST
+
+instance Collapsable (SimpleAST -> SimpleAST) where
+  collapse f = Fix (SBuiltin (\a -> f a))
+
+instance Collapsable (SimpleAST -> SimpleAST -> SimpleAST) where
+  collapse f = Fix (SBuiltin (\a -> collapse $ f a))
+
+instance Collapsable (SimpleAST -> SimpleAST -> SimpleAST -> SimpleAST) where
+  collapse f = Fix (SBuiltin (\a -> collapse $ f a))
+
+intBinOp :: (Int -> Int -> Int) -> SimpleAST
+intBinOp f = collapse go
+  where
+    go (unfix -> SNumber a) (unfix -> SNumber b) = Fix $ SNumber (f a b)
+    go _ _ = error $ "expected numbers in func"
 -- stringBinOp :: (String -> String -> String) -> Prim
 -- stringBinOp f = collapse go
   -- where

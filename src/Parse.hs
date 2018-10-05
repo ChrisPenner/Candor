@@ -11,8 +11,8 @@ import qualified Text.Megaparsec as MP
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
 
+import AST
 import Data.Bifunctor
-import ParseAST
 
 type Parser = Parsec Void String
 
@@ -22,17 +22,16 @@ spacers = space <|> void (char ',')
 symbol :: String -> Parser String
 symbol = L.symbol spacers
 
-expression :: Parser ParseAST
+expression :: Parser AST
 expression =
   try singleBinding <|> appl <|> stringLiteral <|> try numberLiteral <|>
   try boolLiteral <|>
   bindSymbol <|>
   symbolLiteral <|>
   listLiteral <|>
-  -- try recordLiteral <|>
   funcLiteral
 
-boolLiteral :: Parser (ParseAST)
+boolLiteral :: Parser (AST)
 boolLiteral = do
   s <- symbolLexeme
   case s of
@@ -40,11 +39,11 @@ boolLiteral = do
     "F" -> return $ Fix $ Boolean False
     _ -> empty
 
-stringLiteral :: Parser (ParseAST)
+stringLiteral :: Parser (AST)
 stringLiteral =
   Fix . Str <$> L.lexeme spacers (char '"' *> manyTill L.charLiteral (char '"'))
 
-numberLiteral :: Parser (ParseAST)
+numberLiteral :: Parser (AST)
 numberLiteral =
   Fix . Number <$> do
     sign <- optional $ char '-'
@@ -57,19 +56,19 @@ numberLiteral =
 symbolLexeme :: Parser String
 symbolLexeme = L.lexeme spacers (some (noneOf ("\t\n\r ()[]{}<>:," :: String)))
 
-symbolLiteral :: Parser (ParseAST)
+symbolLiteral :: Parser (AST)
 symbolLiteral = Fix . Symbol <$> symbolLexeme
 
-bindSymbol :: Parser ParseAST
+bindSymbol :: Parser AST
 bindSymbol =
   Fix . BindingSymbol <$> do
     _ <- char ':'
     symbolLexeme
 
-listLiteral :: Parser ParseAST
+listLiteral :: Parser AST
 listLiteral = Fix . List <$> list
 
-singleBinding :: Parser ParseAST
+singleBinding :: Parser AST
 singleBinding = do
   between (symbol "(") (symbol ")") $ do
     _ <- L.lexeme spacers (char '=')
@@ -78,23 +77,14 @@ singleBinding = do
     expr <- expression
     return (Fix $ Binding bindingName expr)
 
--- recordLiteral :: Parser ParseAST
--- recordLiteral =
---   Fix . Bindings . M.fromList <$> do
---     between (symbol "{") (symbol "}") . many $ do
---       key <- symbolLexeme
---       _ <- symbol ":"
---       expr <- expression
---       _ <- symbol ","
---       return (key, expr)
-funcLiteral :: Parser (ParseAST)
+funcLiteral :: Parser (AST)
 funcLiteral =
   L.lexeme spacers . between (symbol "{") (symbol "}") $ do
     arg <- symbolLexeme
     expr <- expression
     return (Fix $ FuncDef arg expr)
 
-appl :: Parser (ParseAST)
+appl :: Parser (AST)
 appl = do
   (f, args) <-
     between (symbol "(") (symbol ")") $ do
@@ -103,11 +93,11 @@ appl = do
       return (f, args)
   return $ foldl' go f args
   where
-    go :: ParseAST -> ParseAST -> ParseAST
+    go :: AST -> AST -> AST
     go f arg = Fix (Appl f arg)
 
-list :: Parser [ParseAST]
+list :: Parser [AST]
 list = between (symbol "[") (symbol "]") (many expression)
 
-parse :: String -> Either String (ParseAST)
+parse :: String -> Either String (AST)
 parse s = first (parseErrorPretty' s) $ MP.parse (expression <* eof) "" s
