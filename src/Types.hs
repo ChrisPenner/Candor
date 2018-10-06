@@ -4,8 +4,8 @@
 
 module Types where
 
-import AST
-import Data.List as L
+-- import AST
+-- import Data.List as L
 import qualified Data.Map as M
 import Data.Set as S
 import GHC.Exts (IsList(..))

@@ -37,6 +37,7 @@ dependencies:
 - deriving-compat
 - free
 - uniplate
+- generic-data
 
 library:
   source-dirs: src

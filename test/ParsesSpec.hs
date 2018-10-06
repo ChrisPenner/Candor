@@ -10,10 +10,10 @@ import Test.Hspec
 spec :: Spec
 spec = do
   return ()
-  -- describe "Parser" $ do
-  --   it "parses simple arithmetic" $ do
-  --     parse "(+ 1 2)" `shouldBe` Right (curryApply (sym "+") [num 1, num 2])
-  --     parse "(- (+ 1 2) 3)" `shouldBe`
+  describe "Parser" $
+    -- it "parses simple arithmetic" $ do
+      -- parse "(+ 1 2)" `shouldBe` Right (curryApply (sym "+") [num 1, num 2])
+      -- parse "(- (+ 1 2) 3)" `shouldBe`
   --       Right
   --         (curryApply (sym "-") [curryApply (sym "+") [num 1, num 2], num 3])
   --   -- it "parses bindings" $ do
@@ -22,9 +22,10 @@ spec = do
   --   it "parses bindings" $ do
   --     parse "(= :name 42)" `shouldBe`
   --       Right (curryApply (sym "=") [bindSym "name", num 42])
-  --   it "parses funcs" $ do
-  --     parse "{num (* num 2) }" `shouldBe`
-  --       Right (funcDef "num" (curryApply (sym "*") [sym "num", num 2]))
+   do
+    it "parses funcs" $ do
+      parse "{num (* num 2) }" `shouldBe`
+        Right (funcDef "num" (curryApply (sym "*") [sym "num", num 2]))
   --   -- it
   --   --   "parses definitions alongside expressions"
   --   --   (parse "((= times_two { num (* num 2) }) (times_two 5))" `shouldBe`

@@ -5,25 +5,26 @@ module EvalSpec where
 import RIO
 
 import AST
+import Data.Functor.Foldable
 import Eval
 import Parse
 import Primitives
 import Test.Hspec
 
-testEval :: AST -> Prim
+testEval :: AST -> SimpleAST
 testEval = flip runReader primitives . eval
 
-parseEval :: String -> Either String Prim
+parseEval :: String -> Either String SimpleAST
 parseEval = fmap testEval . parse
 
 spec :: Spec
 spec = do
   describe "eval" $ do
     it "evals simple arithmetic" $ do
-      (parseEval "(+ 1 2)") `shouldBe` Right (PNumber 3)
-      (parseEval "(- (+ 1 2) 3)") `shouldBe` Right (PNumber 0)
-    it "evals functions" $ do
-      (parseEval "({ num (* num 2) } 5)") `shouldBe` Right (PNumber 10)
+      (parseEval "(+ 20 10)") `shouldBe` Right (Fix (SNumber 30))
+      -- (parseEval "(- (+ 1 2) 3)") `shouldBe` Right (PNumber 0)
+    -- it "evals functions" $ do
+      -- (parseEval "({ num (* num 2) } 5)") `shouldBe` Right (PNumber 10)
     -- it "evals literal bindings" $ do
     --   (parseEval "((= :num 5) (+ 1 num))") `shouldBe` Right (Number 6)
     -- it "evals func bindings" $ do

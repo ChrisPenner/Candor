@@ -26,7 +26,6 @@ expression :: Parser AST
 expression =
   try singleBinding <|> appl <|> stringLiteral <|> try numberLiteral <|>
   try boolLiteral <|>
-  bindSymbol <|>
   symbolLiteral <|>
   listLiteral <|>
   funcLiteral
@@ -58,12 +57,6 @@ symbolLexeme = L.lexeme spacers (some (noneOf ("\t\n\r ()[]{}<>:," :: String)))
 
 symbolLiteral :: Parser (AST)
 symbolLiteral = Fix . Symbol <$> symbolLexeme
-
-bindSymbol :: Parser AST
-bindSymbol =
-  Fix . BindingSymbol <$> do
-    _ <- char ':'
-    symbolLexeme
 
 listLiteral :: Parser AST
 listLiteral = Fix . List <$> list
