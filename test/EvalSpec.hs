@@ -8,11 +8,10 @@ import AST
 import Data.Functor.Foldable
 import Eval
 import Parse
-import Primitives
 import Test.Hspec
 
 testEval :: AST -> NoBindingsAST
-testEval = flip runReader primitives . eval
+testEval = flip runReader mempty . eval
 
 parseEval :: String -> Either String NoBindingsAST
 parseEval = fmap testEval . parse

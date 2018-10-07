@@ -17,11 +17,14 @@ import RIO
 eval :: AST -> Reader (Bindings NoBindingsAST) NoBindingsAST
 eval = fmap (cata nEvalExpr) . cata evalExpr
 
-tryFind :: String -> Bindings SimpleAST -> SimpleAST
+tryFind :: String -> Bindings NoBindingsAST -> SimpleAST
 tryFind key m =
   case M.lookup key m of
-    Just v -> v
-    Nothing -> error $ "couldn't find symbol: " ++ key
+    Just v -> backPort v
+    Nothing ->
+      case M.lookup key primitives of
+        Just v -> v
+        Nothing -> Fix (SFuncArg key)
 
 evalExpr ::
      ASTF (Reader (Bindings NoBindingsAST) SimpleAST)
@@ -32,15 +35,13 @@ evalExpr (Appl f arg) = do
     (SBuiltin builtin args) -> do
       arg' <- arg
       return . Fix . SBuiltin builtin $ (args ++ [arg'])
-    (SBinding name expr) -> do
-      local (<> [(name, _ expr)]) arg
+    (SBinding name expr) -> local (<> [(name, cata nEvalExpr expr)]) arg
     (SFuncDef argName expr) -> do
       arg' <- arg
       return $ subBindings argName arg' expr
     x -> error $ "got unknown thing in Appl: " ++ show x
 evalExpr (List rs) = Fix . SList <$> sequenceA rs
-evalExpr (Symbol name) =
-  asks (fromMaybe (Fix $ SFuncArg name) . fmap backPort . M.lookup name)
+evalExpr (Symbol name) = asks (tryFind name)
 evalExpr (Str s) = return . Fix $ SStr s
 evalExpr (Number n) = return . Fix $ SNumber n
 evalExpr (Boolean b) = return . Fix $ SBoolean b
