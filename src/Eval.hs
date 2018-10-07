@@ -14,8 +14,8 @@ import qualified Data.Map as M
 import Primitives
 import RIO
 
-eval :: AST -> Reader (Bindings SimpleAST) SimpleAST
-eval = cata evalExpr
+eval :: AST -> Reader (Bindings NoBindingsAST) NoBindingsAST
+eval = fmap (cata nEvalExpr) . cata evalExpr
 
 tryFind :: String -> Bindings SimpleAST -> SimpleAST
 tryFind key m =
@@ -24,21 +24,23 @@ tryFind key m =
     Nothing -> error $ "couldn't find symbol: " ++ key
 
 evalExpr ::
-     ASTF (Reader (Bindings SimpleAST) SimpleAST)
-  -> Reader (Bindings SimpleAST) SimpleAST
+     ASTF (Reader (Bindings NoBindingsAST) SimpleAST)
+  -> Reader (Bindings NoBindingsAST) SimpleAST
 evalExpr (Appl f arg) = do
   f' <- f
   case unfix f' of
     (SBuiltin builtin args) -> do
-      runBuiltin builtin args <$> arg
+      arg' <- arg
+      return . Fix . SBuiltin builtin $ (args ++ [arg'])
     (SBinding name expr) -> do
-      local (<> [(name, expr)]) arg
+      local (<> [(name, _ expr)]) arg
     (SFuncDef argName expr) -> do
       arg' <- arg
       return $ subBindings argName arg' expr
-    _ -> error "got unknown thing in Appl"
+    x -> error $ "got unknown thing in Appl: " ++ show x
 evalExpr (List rs) = Fix . SList <$> sequenceA rs
-evalExpr (Symbol name) = asks (fromMaybe (Fix $ SFuncArg name) . M.lookup name)
+evalExpr (Symbol name) =
+  asks (fromMaybe (Fix $ SFuncArg name) . fmap backPort . M.lookup name)
 evalExpr (Str s) = return . Fix $ SStr s
 evalExpr (Number n) = return . Fix $ SNumber n
 evalExpr (Boolean b) = return . Fix $ SBoolean b
@@ -52,13 +54,24 @@ subBindings argName sub = transform go
       | s == argName = sub
     go x = x
 
--- nEvalExpr :: SimpleASTF NoBindingsAST -> NoBindingsAST
--- nEvalExpr (SFunc (AFunc f)) = Fix $ NFunc (AFunc (f . undefined))
--- nEvalExpr (SList rs) = Fix $ NList rs
--- nEvalExpr (SStr s) = Fix $ NStr s
--- nEvalExpr (SNumber n) = Fix $ NNumber n
--- nEvalExpr (SBoolean b) = Fix $ NBoolean b
--- nEvalExpr (SFuncArg s) = error $ "missed symbol substitution: " ++ s
+nEvalExpr :: SimpleASTF NoBindingsAST -> NoBindingsAST
+nEvalExpr (SList rs) = Fix $ NList rs
+nEvalExpr (SStr s) = Fix $ NStr s
+nEvalExpr (SNumber n) = Fix $ NNumber n
+nEvalExpr (SBoolean b) = Fix $ NBoolean b
+nEvalExpr (SFuncArg s) = error $ "missed symbol substitution: " ++ s
+nEvalExpr (SFuncDef s _) = error $ "missed symbol substitution: " ++ s
+nEvalExpr (SBinding _ _) = error $ "missed bindings"
+nEvalExpr (SBuiltin name args) = runBuiltin name args
+
+backPort :: NoBindingsAST -> SimpleAST
+backPort = cata go
+  where
+    go (NList rs) = Fix $ SList rs
+    go (NStr s) = Fix $ SStr s
+    go (NNumber s) = Fix $ SNumber s
+    go (NBoolean s) = Fix $ SBoolean s
+
 -- nToS :: NoBindingsAST -> SimpleAST
 -- nToS _ = error "nope"
 -- nToS (unfix -> NList rs) = Fix $ SList rs
@@ -68,7 +81,6 @@ subBindings argName sub = transform go
 -- nToS (unfix -> NBoolean s) = Fix $ SBoolean s
 pEvalExpr :: NoBindingsASTF Prim -> Prim
 pEvalExpr (NList rs) = PList rs
-pEvalExpr (NFunc _) = error $ "unapplied func!"
 pEvalExpr (NStr s) = PStr s
 pEvalExpr (NNumber s) = PNumber s
 pEvalExpr (NBoolean s) = PBoolean s

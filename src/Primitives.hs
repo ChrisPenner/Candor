@@ -24,23 +24,33 @@ import RIO
 --   , ("if", TFunc boolT (TFunc varT (TFunc varT varT)))
 --   , ("==", TFunc varT (TFunc varT boolT))
 --   ]
-runBuiltin :: String -> [SimpleAST] -> SimpleAST -> SimpleAST
-runBuiltin "+" [] arg = Fix $ SBuiltin "+" [arg]
-runBuiltin "+" ([unfix -> SNumber a]) (unfix -> SNumber b) =
-  Fix $ SNumber (a + b)
-runBuiltin "+" _ _ = error "bad args to +"
-runBuiltin _ _ _ = error "unknown builtin"
+runBuiltin :: String -> [NoBindingsAST] -> NoBindingsAST
+runBuiltin "+" = intBinOp (+)
+runBuiltin "-" = intBinOp (-)
+runBuiltin "*" = intBinOp (*)
+runBuiltin "if" = if'
+runBuiltin "==" = eq'
+runBuiltin x = error $ "unknown builtin: " ++ x
+
+if' :: [NoBindingsAST] -> NoBindingsAST
+if' [unfix -> NBoolean cond, a, b] =
+  if cond
+    then a
+    else b
+if' x = error $ "expected bool then 2 args for if but got " ++ show x
+
+eq' :: [NoBindingsAST] -> NoBindingsAST
+eq' [a, b] = Fix . NBoolean $ a == b
+eq' x = error $ "expected 2 args for == but got " ++ show x
+
+intBinOp :: (Int -> Int -> Int) -> [NoBindingsAST] -> NoBindingsAST
+intBinOp f [unfix -> NNumber a, unfix -> NNumber b] = Fix . NNumber $ f a b
+intBinOp _ x = error $ "expected 2 ints for intBinOp but got " ++ show x
 
 primitives :: Bindings SimpleAST
 primitives =
-  M.fromList
-    -- , ("-", intBinOp (-))
-    -- , ("*", intBinOp (*))
-    -- , ("++", stringBinOp (++))
-    -- , ("if", collapse ifPrim)
-  --   , ("==", collapse eq)
-  --   , ("=", collapse singleBind)
-    [("+", Fix $ SBuiltin "+" [])]
+  M.fromList . fmap (\x -> (x, Fix $ SBuiltin x [])) $
+  ["+", "-", "*", "++", "if", "=="]
 -- class Collapsable f where
 --   collapse :: f -> SimpleAST
 -- instance Collapsable (SimpleAST -> SimpleAST) where

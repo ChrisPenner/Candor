@@ -6,6 +6,7 @@
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE PatternSynonyms #-}
 
 module AST where
 
@@ -37,17 +38,17 @@ instance Eq1 (AFunc x)
 type NoBindingsAST = Fix NoBindingsASTF
 
 data NoBindingsASTF r
-    -- NAppl r
-          -- r
   = NList [r]
   | NStr String
   | NNumber Int
   | NBoolean Bool
-  | NFunc (AFunc NoBindingsAST r)
   deriving (Functor, Data, Typeable, Generic, Generic1)
 
-instance Show1 NoBindingsASTF where
-  liftShowsPrec = gliftShowsPrec
+pattern FNNumber n = Fix (NNumber n)
+
+deriveShow1 ''NoBindingsASTF
+
+deriveEq1 ''NoBindingsASTF
 
 data Prim
   = PList [Prim]
