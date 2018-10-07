@@ -9,33 +9,33 @@ import AST
 import Control.Monad.Except
 import Control.Monad.Reader
 import Data.Functor.Foldable
-import Data.Generics.Uniplate.Data
+import Data.Generics.Uniplate.Data hiding (para)
 import qualified Data.Map as M
 import Primitives
 import RIO
 
-eval :: AST -> Reader (Bindings NoBindingsAST) NoBindingsAST
+eval :: AST -> Reader (Bindings SimpleAST) NoBindingsAST
 eval = fmap (cata nEvalExpr) . cata evalExpr
 
-tryFind :: String -> Bindings NoBindingsAST -> SimpleAST
+tryFind :: String -> Bindings SimpleAST -> SimpleAST
 tryFind key m =
   case M.lookup key m of
-    Just v -> backPort v
+    Just v -> v
     Nothing ->
       case M.lookup key primitives of
         Just v -> v
         Nothing -> Fix (SFuncArg key)
 
 evalExpr ::
-     ASTF (Reader (Bindings NoBindingsAST) SimpleAST)
-  -> Reader (Bindings NoBindingsAST) SimpleAST
+     ASTF (Reader (Bindings SimpleAST) SimpleAST)
+  -> Reader (Bindings SimpleAST) SimpleAST
 evalExpr (Appl f arg) = do
   f' <- f
   case unfix f' of
     (SBuiltin builtin args) -> do
       arg' <- arg
       return . Fix . SBuiltin builtin $ (args ++ [arg'])
-    (SBinding name expr) -> local (<> [(name, cata nEvalExpr expr)]) arg
+    (SBinding name expr) -> local (<> [(name, expr)]) arg
     (SFuncDef argName expr) -> do
       arg' <- arg
       return $ subBindings argName arg' expr
