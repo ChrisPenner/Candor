@@ -71,7 +71,8 @@ data ASTF r
   | Boolean Bool
   | Binding String
             r
-  deriving (Functor, Typeable, Show)
+  | Rec
+  deriving (Functor, Typeable, Data, Show)
 
 deriveShow1 ''ASTF
 
@@ -107,6 +108,7 @@ data SimpleASTF r
              r
   | SBuiltin String
              [r]
+  | SRec
   deriving (Functor, Data, Typeable, Generic, Generic1, Show, Eq)
 
 -- instance Show r => Show (SimpleASTF r) where

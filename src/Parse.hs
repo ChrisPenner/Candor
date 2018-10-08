@@ -26,6 +26,7 @@ expression :: Parser AST
 expression =
   try singleBinding <|> appl <|> stringLiteral <|> try numberLiteral <|>
   try boolLiteral <|>
+  try recLiteral <|>
   symbolLiteral <|>
   listLiteral <|>
   funcLiteral
@@ -36,6 +37,13 @@ boolLiteral = do
   case s of
     "T" -> return $ Fix $ Boolean True
     "F" -> return $ Fix $ Boolean False
+    _ -> empty
+
+recLiteral :: Parser AST
+recLiteral = do
+  s <- symbolLexeme
+  case s of
+    "$" -> return $ (Fix Rec)
     _ -> empty
 
 stringLiteral :: Parser (AST)

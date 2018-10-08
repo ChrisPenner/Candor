@@ -17,6 +17,19 @@ import RIO
 eval :: AST -> Reader (Bindings SimpleAST) NoBindingsAST
 eval = fmap (cata nEvalExpr) . cata evalExpr
 
+rebind :: AST -> AST
+rebind = rewrite go
+  where
+    go :: AST -> Maybe AST
+    go (unfix -> Binding name expr) =
+      Just . Fix . Binding name $ rewrite (sub name expr) expr
+    go _ = Nothing
+    sub :: String -> AST -> AST -> Maybe AST
+    sub name expr (unfix -> Symbol s)
+      | s == name = Just $ rebind expr
+    sub _ expr (unfix -> Rec) = Just $ rebind expr
+    sub _ _ expr = Nothing
+
 tryFind :: String -> Bindings SimpleAST -> SimpleAST
 tryFind key m =
   case M.lookup key m of
@@ -36,6 +49,7 @@ evalExpr (Appl f arg) = do
       arg' <- arg
       return . Fix . SBuiltin builtin $ (args ++ [arg'])
     (SBinding name expr) -> local (<> [(name, expr)]) arg
+    SRec -> error "y u SRec?"
     (SFuncDef argName expr) -> do
       arg' <- arg
       return $ subBindings argName arg' expr
@@ -45,7 +59,9 @@ evalExpr (Symbol name) = asks (tryFind name)
 evalExpr (Str s) = return . Fix $ SStr s
 evalExpr (Number n) = return . Fix $ SNumber n
 evalExpr (Boolean b) = return . Fix $ SBoolean b
-evalExpr (FuncDef argName expr) = sfuncDef argName <$> expr
+evalExpr (FuncDef argName expr) = do
+  expr' <- expr
+  return (Fix . SFuncDef argName $ expr')
 evalExpr (Binding name expr) = Fix . SBinding name <$> expr
 
 subBindings :: String -> SimpleAST -> SimpleAST -> SimpleAST
@@ -61,7 +77,7 @@ nEvalExpr (SStr s) = Fix $ NStr s
 nEvalExpr (SNumber n) = Fix $ NNumber n
 nEvalExpr (SBoolean b) = Fix $ NBoolean b
 nEvalExpr (SFuncArg s) = error $ "missed symbol substitution: " ++ s
-nEvalExpr (SFuncDef s _) = error $ "missed symbol substitution: " ++ s
+nEvalExpr (SFuncDef s _) = error $ "missed funcdef substitution: " ++ s
 nEvalExpr (SBinding _ _) = error $ "missed bindings"
 nEvalExpr (SBuiltin name args) = runBuiltin name args
 

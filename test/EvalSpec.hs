@@ -41,9 +41,16 @@ spec = do
     it "can test equality" $ do
       (parseEval "(== 1 2)") `shouldBe` Right (Fix $ NBoolean False)
       (parseEval "(== 1 1)") `shouldBe` Right (Fix $ NBoolean True)
-    it "can run simple recursive functions" $ do
-      (parseEval "((= :fact { num (fact 1) }) (fact 0))") `shouldBe`
+    it "can handle ignored recursion" $ do
+      (parseEval "((= :func { n (if T 42 (func 0))}) (func 0))") `shouldBe`
+        Right (Fix $ NNumber 42)
+    it "can run recurse once" $ do
+      (parseEval "((= :fact { num (if (== num 0) 1 ($ (- num 1))) }) (fact 1))") `shouldBe`
         Right (Fix $ NNumber 1)
+    it "can run recurse many times" $ do
+      (parseEval
+         "((= :fact { num (if (== num 0) 1 (* num ($ (- num 1)))) }) (fact 3))") `shouldBe`
+        Right (Fix $ NNumber 6)
       -- (parseEval
       --    "((= :fact { num (if (== num 0) 1 (* num (fact (- num 1)))) }) (fact 0))") `shouldBe`
       --   Right (Number 1)
