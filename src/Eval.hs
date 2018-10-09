@@ -45,15 +45,18 @@ evalExpr ::
 evalExpr (Appl f arg) = do
   f' <- f
   case unfix f' of
+    (SApplFunc func) -> func <$> arg
     (SBuiltin builtin args) -> do
       arg' <- arg
       return . Fix . SBuiltin builtin $ (args ++ [arg'])
-    (SBinding name expr) -> local (<> [(name, expr)]) arg
     SRec -> error "y u SRec?"
-    (SFuncDef argName expr) -> do
-      arg' <- arg
-      return $ subBindings argName arg' expr
-    x -> error $ "got unknown thing in Appl: " ++ show x
+    (SList rs) -> error "y u SList?"
+    (SStr s) -> error "y u SStr?"
+    (SNumber n) -> error "y u SNumber?"
+    (SBoolean b) -> error "y u SBoolean?"
+    (SFuncArg s) -> error "y u SFuncArg?"
+    (SBuiltin name args) -> error "y u SBuiltin?"
+    -- _ -> error $ "got unknown thing in Appl"
 evalExpr (List rs) = Fix . SList <$> sequenceA rs
 evalExpr (Symbol name) = asks (tryFind name)
 evalExpr (Str s) = return . Fix $ SStr s
@@ -61,15 +64,17 @@ evalExpr (Number n) = return . Fix $ SNumber n
 evalExpr (Boolean b) = return . Fix $ SBoolean b
 evalExpr (FuncDef argName expr) = do
   expr' <- expr
-  return (Fix . SFuncDef argName $ expr')
-evalExpr (Binding name expr) = Fix . SBinding name <$> expr
+  return . Fix . SApplFunc $ \arg -> subBindings argName arg expr'
+evalExpr (Binding name expr) = do
+  expr' <- expr
+  return . Fix . SApplFunc $ \arg -> subBindings name expr' arg
 
 subBindings :: String -> SimpleAST -> SimpleAST -> SimpleAST
-subBindings argName sub = transform go
+subBindings argName sub expr = cata go expr
   where
-    go (unfix -> SFuncArg s)
+    go (SFuncArg s)
       | s == argName = sub
-    go x = x
+    go x = Fix x
 
 nEvalExpr :: SimpleASTF NoBindingsAST -> NoBindingsAST
 nEvalExpr (SList rs) = Fix $ NList rs
@@ -77,8 +82,6 @@ nEvalExpr (SStr s) = Fix $ NStr s
 nEvalExpr (SNumber n) = Fix $ NNumber n
 nEvalExpr (SBoolean b) = Fix $ NBoolean b
 nEvalExpr (SFuncArg s) = error $ "missed symbol substitution: " ++ s
-nEvalExpr (SFuncDef s _) = error $ "missed funcdef substitution: " ++ s
-nEvalExpr (SBinding _ _) = error $ "missed bindings"
 nEvalExpr (SBuiltin name args) = runBuiltin name args
 
 backPort :: NoBindingsAST -> SimpleAST

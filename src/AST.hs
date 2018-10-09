@@ -99,18 +99,14 @@ type SimpleAST = Fix SimpleASTF
 data SimpleASTF r
   = SList [r]
   | SFuncArg String
+  | SApplFunc (SimpleAST -> r)
   | SStr String
   | SNumber Int
   | SBoolean Bool
-  | SFuncDef String
-             r
-  | SBinding String
-             r
   | SBuiltin String
              [r]
   | SRec
-  deriving (Functor, Data, Typeable, Generic, Generic1, Show, Eq)
-
+  deriving (Functor, Typeable, Generic, Generic1)
 -- instance Show r => Show (SimpleASTF r) where
 --   show (SAppl a b) = "(Appl (" ++ show a ++ ") (" ++ show b ++ "))"
 --   show (SList a) = "(SList " ++ show a ++ ")"
@@ -120,11 +116,9 @@ data SimpleASTF r
 --   show (SBoolean b) = "(SBoolean " ++ show b ++ ")"
 --   show (SFunc _) = "(SFunc ...)"
 --   show (SBinding name expr) = "(SBinding " ++ name ++ " (" ++ show expr ++ ")"
-deriveEq1 ''SimpleASTF
-
-sfuncDef :: String -> SimpleAST -> SimpleAST
-sfuncDef n expr = Fix $ SFuncDef n expr
-
+-- deriveEq1 ''SimpleASTF
+-- sfuncDef :: String -> SimpleAST -> SimpleAST
+-- sfuncDef n expr = Fix $ SFuncDef n expr
 -- Broken orphan instance just to make life sane
-instance Show1 SimpleASTF where
-  liftShowsPrec = gliftShowsPrec
+-- instance Show1 SimpleASTF where
+  -- liftShowsPrec = gliftShowsPrec
