@@ -11,7 +11,7 @@ import Parse
 import Test.Hspec
 
 testEval :: AST -> NoBindingsAST
-testEval = flip runReader mempty . eval
+testEval = eval
 
 parseEval :: String -> Either String NoBindingsAST
 parseEval = fmap testEval . parse

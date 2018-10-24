@@ -24,8 +24,7 @@ symbol = L.symbol spacers
 
 expression :: Parser AST
 expression =
-  try singleBinding <|> appl <|> stringLiteral <|> try numberLiteral <|>
-  try boolLiteral <|>
+  appl <|> stringLiteral <|> try numberLiteral <|> try boolLiteral <|>
   try recLiteral <|>
   symbolLiteral <|>
   listLiteral <|>
@@ -69,15 +68,14 @@ symbolLiteral = Fix . Symbol <$> symbolLexeme
 listLiteral :: Parser AST
 listLiteral = Fix . List <$> list
 
-singleBinding :: Parser AST
-singleBinding = do
-  between (symbol "(") (symbol ")") $ do
-    _ <- L.lexeme spacers (char '=')
-    _ <- char ':'
-    bindingName <- symbolLexeme
-    expr <- expression
-    return (Fix $ Binding bindingName expr)
-
+-- singleBinding :: Parser AST
+-- singleBinding = do
+--   between (symbol "(") (symbol ")") $ do
+--     _ <- L.lexeme spacers (char '=')
+--     _ <- char ':'
+--     bindingName <- symbolLexeme
+--     expr <- expression
+--     return (Fix $ Binding bindingName expr)
 funcLiteral :: Parser (AST)
 funcLiteral =
   L.lexeme spacers . between (symbol "{") (symbol "}") $ do

@@ -14,21 +14,8 @@ import qualified Data.Map as M
 import Primitives
 import RIO
 
-eval :: AST -> Reader (Bindings SimpleAST) NoBindingsAST
-eval = fmap (cata nEvalExpr) . cata evalExpr
-
-rebind :: AST -> AST
-rebind = rewrite go
-  where
-    go :: AST -> Maybe AST
-    go (unfix -> Binding name expr) =
-      Just . Fix . Binding name $ rewrite (sub name expr) expr
-    go _ = Nothing
-    sub :: String -> AST -> AST -> Maybe AST
-    sub name expr (unfix -> Symbol s)
-      | s == name = Just $ rebind expr
-    sub _ expr (unfix -> Rec) = Just $ rebind expr
-    sub _ _ expr = Nothing
+eval :: AST -> NoBindingsAST
+eval = (cata nEvalExpr) . cata evalExpr
 
 tryFind :: String -> Bindings SimpleAST -> SimpleAST
 tryFind key m =
@@ -39,36 +26,44 @@ tryFind key m =
         Just v -> v
         Nothing -> Fix (SFuncArg key)
 
-evalExpr ::
-     ASTF (Reader (Bindings SimpleAST) SimpleAST)
-  -> Reader (Bindings SimpleAST) SimpleAST
-evalExpr (Appl f arg) = do
-  f' <- f
-  case unfix f' of
-    (SApplFunc func) -> func <$> arg
-    (SBuiltin builtin args) -> do
-      arg' <- arg
-      return . Fix . SBuiltin builtin $ (args ++ [arg'])
-    SRec -> error "y u SRec?"
-    (SList rs) -> error "y u SList?"
-    (SStr s) -> error "y u SStr?"
-    (SNumber n) -> error "y u SNumber?"
-    (SBoolean b) -> error "y u SBoolean?"
-    (SFuncArg s) -> error "y u SFuncArg?"
-    (SBuiltin name args) -> error "y u SBuiltin?"
-    -- _ -> error $ "got unknown thing in Appl"
-evalExpr (List rs) = Fix . SList <$> sequenceA rs
-evalExpr (Symbol name) = asks (tryFind name)
-evalExpr (Str s) = return . Fix $ SStr s
-evalExpr (Number n) = return . Fix $ SNumber n
-evalExpr (Boolean b) = return . Fix $ SBoolean b
-evalExpr (FuncDef argName expr) = do
-  expr' <- expr
-  return . Fix . SApplFunc $ \arg -> subBindings argName arg expr'
-evalExpr (Binding name expr) = do
-  expr' <- expr
-  return . Fix . SApplFunc $ \arg -> subBindings name expr' arg
+rewriteBinds :: String -> SimpleAST -> SimpleAST -> SimpleAST
+rewriteBinds name val expr = rewrite go expr
+  where
+    go (unfix -> SFuncArg s)
+      | s == name = Just val
+    go _ = Nothing
 
+evalExpr :: ASTF SimpleAST -> SimpleAST
+evalExpr (Appl (unfix -> SFuncDef argName expr) arg) =
+  rewriteBinds argName arg expr
+evalExpr (Appl (unfix -> SBuiltin builtin args) arg) =
+  Fix . SBuiltin builtin $ (args ++ [arg])
+evalExpr (Appl (unfix -> SFuncArg s) arg) = Fix $ SAppl (Fix $ SFuncArg s) arg
+evalExpr (Appl x arg) = Fix $ SAppl x arg
+  -- case unfix f' of
+  --   (SBuiltin builtin args) -> do
+  --     return . Fix . SBuiltin builtin $ (args ++ [arg'])
+  --   SRec -> error "y u SRec?"
+  --   (SList rs) -> error "y u SList?"
+  --   (SStr s) -> error "y u SStr?"
+  --   (SNumber n) -> error "y u SNumber?"
+  --   (SBoolean b) -> error "y u SBoolean?"
+  --   (SFuncArg s) -> flip applyFunc arg' <$> asks (tryFind s)
+    -- _ -> error $ "got unknown thing in Appl"
+evalExpr (List rs) = Fix . SList $ rs
+evalExpr (Symbol name) = Fix $ SFuncArg name
+evalExpr (Str s) = Fix $ SStr s
+evalExpr (Number n) = Fix $ SNumber n
+evalExpr (Boolean b) = Fix $ SBoolean b
+evalExpr (FuncDef argName expr) = Fix $ SFuncDef argName expr
+
+-- applyFunc :: SimpleAST -> SimpleAST -> Reader (Bindings SimpleAST) SimpleAST
+-- applyFunc (unfix -> SApplFunc func) arg = return $ func arg
+-- applyFunc (unfix -> SBuiltin builtin args) arg =
+--   return . Fix . SBuiltin builtin $ (args ++ [arg])
+-- applyFunc (unfix -> SFuncArg s) arg = do
+--   expr <- asks (tryFind s)
+--   applyFunc expr arg
 subBindings :: String -> SimpleAST -> SimpleAST -> SimpleAST
 subBindings argName sub expr = cata go expr
   where
@@ -77,6 +72,14 @@ subBindings argName sub expr = cata go expr
     go x = Fix x
 
 nEvalExpr :: SimpleASTF NoBindingsAST -> NoBindingsAST
+nEvalExpr (NAppl f arg) = Fix $ NList rs
+
+evalExpr (SAppl (unfix -> SFuncDef argName expr) arg) =
+  rewriteBinds argName arg expr
+evalExpr (SAppl (unfix -> SBuiltin builtin args) arg) =
+  Fix . SBuiltin builtin $ (args ++ [arg])
+evalExpr (SAppl (unfix -> SFuncArg s) arg) = Fix $ SAppl (Fix $ SFuncArg s) arg
+
 nEvalExpr (SList rs) = Fix $ NList rs
 nEvalExpr (SStr s) = Fix $ NStr s
 nEvalExpr (SNumber n) = Fix $ NNumber n

@@ -98,15 +98,18 @@ type SimpleAST = Fix SimpleASTF
 
 data SimpleASTF r
   = SList [r]
+  | SAppl r
+          r
   | SFuncArg String
-  | SApplFunc (SimpleAST -> r)
   | SStr String
   | SNumber Int
   | SBoolean Bool
+  | SFuncDef String
+             r
   | SBuiltin String
              [r]
   | SRec
-  deriving (Functor, Typeable, Generic, Generic1)
+  deriving (Functor, Typeable, Generic, Generic1, Data)
 -- instance Show r => Show (SimpleASTF r) where
 --   show (SAppl a b) = "(Appl (" ++ show a ++ ") (" ++ show b ++ "))"
 --   show (SList a) = "(SList " ++ show a ++ ")"
