@@ -60,5 +60,5 @@ tests:
     - -with-rtsopts=-N
     dependencies:
     - candor
-    - hspec == 2.4.*
-    - text == 1.2.*
+    - hspec
+    - text
