@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-10.3
+resolver: lts-18.10
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -39,10 +39,10 @@ packages:
 - .
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: 
-- megaparsec-6.4.0
-- rio-0.0.0.0
-- unliftio-0.2.4.0
+extra-deps: []
+# - megaparsec-6.4.0
+# - rio-0.0.0.0
+# - unliftio-0.2.4.0
 
 # allow-newer: true
 

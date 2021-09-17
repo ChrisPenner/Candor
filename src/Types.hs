@@ -124,7 +124,7 @@ instance (Sub a, Sub b) =>
 
 newtype Env =
   Env (M.Map String Monotype)
-  deriving (Show, Monoid, Eq)
+  deriving (Show, Semigroup, Monoid, Eq)
 
 instance Pretty Env where
   pretty (Env binds) =
@@ -140,6 +140,9 @@ instance IsList Env where
 newtype Substitutions =
   Substitutions (M.Map String Monotype)
   deriving (Show, Eq)
+
+instance Semigroup Substitutions where
+  (<>) = mappend
 
 instance Monoid Substitutions where
   mappend subst1 subst2 = Substitutions (s1 `M.union` s2)

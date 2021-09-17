@@ -103,4 +103,4 @@ list :: Parser [AST]
 list = between (symbol "[") (symbol "]") (many expression)
 
 parse :: String -> Either String AST
-parse s = first (parseErrorPretty' s) $ MP.parse (expression <* eof) "" s
+parse s = first errorBundlePretty $ MP.parse (expression <* eof) "" s

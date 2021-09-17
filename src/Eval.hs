@@ -4,7 +4,6 @@ module Eval where
 import RIO
 import AST
 import qualified Data.Map as M
-import Data.List.NonEmpty (NonEmpty(..))
 import Primitives
 import Control.Monad.Except
 

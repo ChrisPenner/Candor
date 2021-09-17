@@ -26,12 +26,13 @@ default-extensions:
 
 dependencies:
 - base >= 4.7 && < 5
-- megaparsec == 6.4.*
-- text == 1.2.*
-- mtl == 2.2.*
-- lens == 4.15.*
-- containers == 0.5.*
-- rio == 0.0.*
+- megaparsec
+- text
+- mtl
+- lens
+- containers
+- rio
+- streams
 
 library:
   source-dirs: src
@@ -46,8 +47,8 @@ executables:
     - -with-rtsopts=-N
     dependencies:
     - candor
-    - haskeline == 0.7.4.*
-    - optparse-applicative == 0.14.0.*
+    - haskeline
+    - optparse-applicative
 
 tests:
   candor-test:
