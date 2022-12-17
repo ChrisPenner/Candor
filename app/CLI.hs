@@ -5,7 +5,8 @@ import Options.Applicative
 
 data Options = Options
   { runREPL :: Bool
-  }
+  , file :: FilePath
+  } deriving (Show)
 
 optionsP :: Parser Options
 optionsP = Options
@@ -13,9 +14,7 @@ optionsP = Options
           ( long "repl"
          <> short 'r'
          <> help "start a REPL" )
+      <*> (argument str (metavar "FILE"))
 
 opts :: ParserInfo Options
-opts = info (optionsP <**> helper)
-      ( fullDesc
-     <> progDesc "Print a greeting for TARGET"
-     <> header "hello - a test for optparse-applicative" )
+opts = info (optionsP <**> helper) fullDesc

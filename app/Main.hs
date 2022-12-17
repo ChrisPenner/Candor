@@ -3,7 +3,6 @@
 module Main where
 
 import RIO
-import System.Environment
 import System.IO
 import Parse
 import Eval
@@ -11,6 +10,7 @@ import AST
 import CLI
 import REPL
 import Options.Applicative (execParser)
+import qualified Data.Text as Text
 
 newtype ParseError = ParseError String
 instance Show ParseError where
@@ -30,18 +30,15 @@ instance Exception ArgError
 
 main :: IO ()
 main = do
-  Options runRepl <- execParser opts
-  if runRepl 
-     then repl 
-     else compiler
+  Options runRepl srcFile <- execParser opts
+  if runRepl
+     then repl
+     else compiler srcFile
 
 
-compiler :: IO ()
-compiler = flip catchAny print $ do
-  args <- getArgs
-  file <- case args of
-                [fileName] -> readFile fileName
-                _ -> throwIO $ ArgError "usage: candor <filename>"
-  ast <- either (throwIO . ParseError) return (parse file)
+compiler :: FilePath -> IO ()
+compiler srcFile = flip catchAny print $ do
+  fileContents <- readFileUtf8 srcFile
+  ast <- either (throwIO . ParseError) return (parse $ Text.unpack fileContents)
   result <- either (throwIO . EvalError) return (eval ast)
   putStrLn . pretty $ result
