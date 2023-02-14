@@ -23,9 +23,14 @@ ghc-options: -Wall
 default-extensions:
   - NoImplicitPrelude
   - OverloadedStrings
+  - LambdaCase
+  - DerivingStrategies
+  - DeriveFunctor
+  - GADTs
 
 dependencies:
 - base >= 4.7 && < 5
+- cereal
 - megaparsec
 - text
 - mtl
@@ -33,6 +38,7 @@ dependencies:
 - containers
 - rio
 - streams
+- hashable
 
 library:
   source-dirs: src
