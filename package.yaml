@@ -33,6 +33,7 @@ dependencies:
 - containers
 - rio
 - streams
+- wasm-dsl
 
 library:
   source-dirs: src

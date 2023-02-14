@@ -1,15 +1,19 @@
 {-# LANGUAGE ViewPatterns #-}
 
-module Eval where
+module Wasm.Eval where
 
-import AST as AST
+import AST
 import Control.Monad.Except
 import qualified Data.Map as M
 import Primitives
 import RIO
+import qualified Wasm
 
-eval :: AST -> Either String AST
-eval ast = runReaderT (eval' ast) primitives
+ast2Wat :: AST -> Text
+ast2Wat ast = runIdentity . Wasm.renderModule $ ast2Module ast
+
+ast2Module :: AST -> Wasm.Wasm Wasm.Declaration m i o a
+ast2Module = _
 
 eval' :: AST -> EvalM AST
 eval' (Symbol name) = do

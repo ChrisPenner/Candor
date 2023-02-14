@@ -15,7 +15,7 @@
 # resolver:
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
-resolver: lts-18.28
+resolver: lts-19.20
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -37,9 +37,12 @@ resolver: lts-18.28
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - .
+- ../wasm-dsl
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
-extra-deps: []
+extra-deps:
+- indexed-extras-0.2@sha256:e7e498023e33016fe45467dfee3c1379862e7e6654a806a965958fa1adc00304,1349
+
 # - megaparsec-6.4.0
 # - rio-0.0.0.0
 # - unliftio-0.2.4.0
