@@ -2,18 +2,18 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 
-module Bytecode where
+module ASTBytecode where
 
 import AST
+import Bytecode.Types
 import Control.Lens hiding (List)
 import Control.Monad.State
 import Data.Hashable
 import Data.Serialize
-import qualified Desugared as N
 import RIO
 import qualified RIO.ByteString as BS
 
-data Instr stackOffset label funcPtr dataPtr
+data Instr sym stackOffset label funcPtr dataPtr
   = Push stackOffset
   | Add
   | Sub
@@ -24,7 +24,11 @@ data Instr stackOffset label funcPtr dataPtr
   | Eq
   | Return
   | JumpIfFalse label
-  | Call funcPtr
+  | PushBinding sym [Instr sym stackOffset label funcPtr dataPtr]
+  | PopBinding sym
+  | LookupBinding sym
+  | -- num args to pop
+    Call Int
   | Load dataPtr
   deriving (Show, Eq)
 
@@ -38,7 +42,7 @@ newtype DataPtr = DataPtr Int
   deriving newtype (Num)
 
 -- | High level instructions
-type HInstr = Instr StackOffset Label Void DataPtr
+type HInstr = Instr Text StackOffset Label Void DataPtr
 
 data Stuff = Stuff
   { _internMap :: IntMap DataPtr,
@@ -68,19 +72,29 @@ storeLoad a = do
   dp <- store a
   pure [Load dp]
 
-interp :: N.Norm -> InterpM [HInstr]
+interp :: AST -> InterpM [HInstr]
 interp = \case
-  N.Str s -> storeLoad s
-  N.Number n -> storeLoad n
-  N.Boolean b -> storeLoad b
-  N.List nos -> _
-  N.Builtin s -> _
-  N.Bindings map' -> _
-  N.If no no' no2 -> _
-  N.Add no no' -> _
-  N.Sub no no' -> _
-  N.Mul no no' -> _
-  N.StringAppend no no' -> _
-  N.Eq no no' -> _
-  N.FuncLookup fn -> _
-  N.ArgLabel n -> _
+  Appl ast asts -> do
+    f <- interp ast
+    args <- traverse interp asts
+    pure $ concat args ++ f ++ [Call (length args)]
+  Str s -> storeLoad (Txt s)
+  Number n -> storeLoad n
+  Boolean b -> storeLoad b
+  Symbol s -> pure [LookupBinding s]
+  FuncDef ne ast -> _
+  Builtin s -> case s of
+    "+" -> pure [Add]
+    "-" -> pure [Sub]
+    "*" -> pure [Mul]
+    "++" -> pure [StrAppend]
+    "if" -> error "if"
+    "==" -> pure [Eq]
+    _ -> error "Unknown builtin"
+  Bindings binds ->
+    foldMap
+      ( \(sym, ast) -> do
+          instrs <- interp ast
+          pure [PushBinding sym instrs, PopBinding sym]
+      )
+      binds

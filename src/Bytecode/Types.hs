@@ -1,3 +1,5 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Bytecode.Types where
 
 import Data.Serialize
@@ -6,7 +8,8 @@ import RIO
 import qualified RIO.ByteString as BSC
 
 newtype Txt = Txt Text
-  deriving (Show, Eq)
+  deriving stock (Show, Eq)
+  deriving newtype (Hashable)
 
 instance Serialize Txt where
   put (Txt s) = do
